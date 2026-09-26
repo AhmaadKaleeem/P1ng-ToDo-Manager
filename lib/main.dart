@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:p1ng_todo_manager/bootstrap.dart';
 import 'package:p1ng_todo_manager/core/theme/app_theme.dart';
-import 'package:p1ng_todo_manager/presentation/app.dart';
+import 'package:p1ng_todo_manager/core/routing/app_router.dart';
 import 'package:provider/provider.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const P1ngApp());
+  runApp(const ProviderScope(child: P1ngApp()));
 }
 
 class P1ngApp extends StatefulWidget {
@@ -21,32 +23,40 @@ class _P1ngAppState extends State<P1ngApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'P1ng',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: FutureBuilder<AppServices>(
-        future: _services,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _StartupError(error: snapshot.error.toString());
-          }
-          if (!snapshot.hasData) {
-            return const Scaffold(
-                body: Center(child: CircularProgressIndicator()));
-          }
-          final services = snapshot.data!;
-          return MultiProvider(
-            providers: [
-              ChangeNotifierProvider.value(value: services.taskController),
-              ChangeNotifierProvider.value(value: services.focusController),
-              ChangeNotifierProvider.value(value: services.timetableController),
-              ChangeNotifierProvider.value(value: services.appController),
-            ],
-            child: AppShell(services: services),
+    return FutureBuilder<AppServices>(
+      future: _services,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return MaterialApp(
+            theme: AppTheme.dark,
+            home: _StartupError(error: snapshot.error.toString()),
           );
-        },
-      ),
+        }
+        if (!snapshot.hasData) {
+          return MaterialApp(
+            theme: AppTheme.dark,
+            home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+          );
+        }
+        
+        final services = snapshot.data!;
+        
+        return MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: services.taskController),
+            ChangeNotifierProvider.value(value: services.focusController),
+            ChangeNotifierProvider.value(value: services.timetableController),
+            ChangeNotifierProvider.value(value: services.appController),
+          ],
+          child: MaterialApp(
+            title: 'P1ng',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark,
+            initialRoute: AppRoutes.splash,
+            onGenerateRoute: (settings) => AppRouter.generateRoute(settings, services),
+          ),
+        );
+      },
     );
   }
 }
