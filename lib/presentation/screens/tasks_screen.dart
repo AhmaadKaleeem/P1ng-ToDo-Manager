@@ -18,15 +18,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import 'package:p1ng_todo_manager/presentation/app.dart';
+import 'package:p1ng_todo_manager/presentation/widgets/empty_state.dart';
 
-class TasksPage extends StatefulWidget {
-  const TasksPage({super.key});
+class TasksScreen extends StatefulWidget {
+  const TasksScreen({super.key});
 
   @override
-  State<TasksPage> createState() => _TasksPageState();
+  State<TasksScreen> createState() => _TasksScreenState();
 }
 
-class _TasksPageState extends State<TasksPage> {
+class _TasksScreenState extends State<TasksScreen> {
   final _search = TextEditingController();
 
   @override
@@ -71,7 +72,7 @@ class _TasksPageState extends State<TasksPage> {
           child: controller.loading
               ? const Center(child: CircularProgressIndicator())
               : controller.tasks.isEmpty
-                  ? const _EmptyState(
+                  ? const AppEmptyState(
                       title: 'No tasks yet',
                       message: 'Capture the next thing you need to remember.')
                   : ListView.separated(
@@ -154,3 +155,4 @@ class TaskRow extends StatelessWidget {
     );
   }
 }
+

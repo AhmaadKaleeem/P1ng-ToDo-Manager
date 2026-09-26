@@ -40,13 +40,13 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      TodayPage(onFocus: () => setState(() {
+      TodayScreen(onFocus: () => setState(() {
         _index = 2;
         _animationController.reverse();
       })),
-      const TasksPage(),
-      const FocusPage(),
-      const TimetablePage(),
+      const TasksScreen(),
+      const FocusScreen(),
+      const TimetableScreen(),
     ];
 
     return Scaffold(
@@ -168,3 +168,4 @@ class _SparklinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

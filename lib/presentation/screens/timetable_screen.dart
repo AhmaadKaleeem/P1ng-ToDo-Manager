@@ -18,9 +18,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import 'package:p1ng_todo_manager/presentation/app.dart';
+import 'package:p1ng_todo_manager/presentation/widgets/empty_state.dart';
 
-class TimetablePage extends StatelessWidget {
-  const TimetablePage({super.key});
+class TimetableScreen extends StatelessWidget {
+  const TimetableScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +43,7 @@ class TimetablePage extends StatelessWidget {
                 ?.copyWith(color: AppColors.action)),
         const SizedBox(height: 12),
         if (entries.isEmpty)
-          const _EmptyState(
+          const AppEmptyState(
               title: 'No classes today',
               message: 'Keep your weekly rhythm here when you need it.')
         else
@@ -77,3 +78,4 @@ class _TimetableRow extends StatelessWidget {
     );
   }
 }
+

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
 
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.message});
+class AppEmptyState extends StatelessWidget {
+  const AppEmptyState({required this.title, required this.message, super.key});
   final String title;
   final String message;
 

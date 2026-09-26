@@ -10,14 +10,14 @@ import 'package:p1ng_todo_manager/presentation/controllers/task_controller.dart'
 import 'package:provider/provider.dart';
 
 
-class FocusPage extends StatefulWidget {
-  const FocusPage({super.key});
+class FocusScreen extends StatefulWidget {
+  const FocusScreen({super.key});
 
   @override
-  State<FocusPage> createState() => _FocusPageState();
+  State<FocusScreen> createState() => _FocusScreenState();
 }
 
-class _FocusPageState extends State<FocusPage> {
+class _FocusScreenState extends State<FocusScreen> {
   Timer? _ticker;
   FocusPreset _preset = FocusPreset.study;
   String? _taskId;
@@ -146,3 +146,4 @@ class _ActiveFocus extends StatelessWidget {
     );
   }
 }
+
