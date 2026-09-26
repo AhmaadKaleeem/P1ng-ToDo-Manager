@@ -57,3 +57,9 @@
 | **Alert** | `#F59E0B` Warning Amber | Reminders, overdue states |
 
 *Secondary text uses `#F3F4F6` at roughly 60–65% opacity.*
+
+STRICT NEGATIVE DESIGN COMMANDS: Do not use harsh gradients, Lucide icons, pure white backgrounds, rainbow colors, drop shadows, three feature cards in a row, emojis, liquid glass, em dashes, Inter, Geist, Space Grotesk, colored left stripes, fake testimonials, bento grids, decorative terminal windows, the "it's not X, it's Y" copywriting formula, checkmark bullets, three pricing tiers, generic AI imagery, soft corner radii, purple-and-black palettes, radial orbs, dot grids, sparkle icons, animated arrows, hover animations, neon colors, basic pastels, excessive rounded cards, generic SaaS templates, unnecessary animations, stock imagery without purpose, fake metrics, fabricated claims, corporate filler, AI buzzwords, repetitive layouts, meaningless icons, inaccessible controls, poor contrast, dead links, nonfunctional buttons, excessive dependencies, inconsistent design tokens, and unnecessary visual clutter.
+
+Do not omit real product demos, skeleton loaders, loading/error/empty states, responsive mobile layouts, accessibility, functional interactions, Terms of Service, or a Privacy Policy where required. Never fabricate product capabilities, testimonials, statistics, security claims, or legal documents.
+
+Prioritize: distinctive product-specific design, clear hierarchy, restrained colors, readable typography, sharp intentional geometry, genuine product visuals, accessible interactions, responsive layouts, maintainable code, and production quality. Audit every restriction before completion. If information is missing, ask instead of inventing it.
