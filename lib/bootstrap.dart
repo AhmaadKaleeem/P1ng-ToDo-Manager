@@ -1,0 +1,128 @@
+import 'package:p1ng_todo_manager/data/local/app_database.dart';
+import 'package:p1ng_todo_manager/data/local/focus_repository_impl.dart';
+import 'package:p1ng_todo_manager/data/local/task_repository_impl.dart';
+import 'package:p1ng_todo_manager/data/local/timetable_repository_impl.dart';
+import 'package:p1ng_todo_manager/data/services/app_blocking_service_stub.dart';
+import 'package:p1ng_todo_manager/data/services/attachment_service_impl.dart';
+import 'package:p1ng_todo_manager/data/services/focus_service_impl.dart';
+import 'package:p1ng_todo_manager/data/services/notification_service_impl.dart';
+import 'package:p1ng_todo_manager/data/services/reminder_scheduler_impl.dart';
+import 'package:p1ng_todo_manager/domain/repositories/focus_repository.dart';
+import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
+import 'package:p1ng_todo_manager/domain/repositories/timetable_repository.dart';
+import 'package:p1ng_todo_manager/domain/services/app_blocking_service.dart';
+import 'package:p1ng_todo_manager/domain/services/attachment_service.dart';
+import 'package:p1ng_todo_manager/domain/services/focus_service.dart';
+import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
+import 'package:p1ng_todo_manager/domain/services/reminder_scheduler.dart';
+import 'package:p1ng_todo_manager/presentation/controllers/app_controller.dart';
+import 'package:p1ng_todo_manager/presentation/controllers/focus_controller.dart';
+import 'package:p1ng_todo_manager/presentation/controllers/task_controller.dart';
+import 'package:p1ng_todo_manager/presentation/controllers/timetable_controller.dart';
+
+class AppServices {
+  AppServices({
+    required this.taskRepository,
+    required this.timetableRepository,
+    required this.focusRepository,
+    required this.notificationService,
+    required this.reminderScheduler,
+    required this.attachmentService,
+    required this.focusService,
+    required this.appBlockingService,
+    required this.taskController,
+    required this.timetableController,
+    required this.focusController,
+    required this.appController,
+  });
+
+  final TaskRepository taskRepository;
+  final TimetableRepository timetableRepository;
+  final FocusRepository focusRepository;
+  final NotificationService notificationService;
+  final ReminderScheduler reminderScheduler;
+  final AttachmentService attachmentService;
+  final FocusService focusService;
+  final AppBlockingService appBlockingService;
+  final TaskController taskController;
+  final TimetableController timetableController;
+  final FocusController focusController;
+  final AppController appController;
+}
+
+Future<AppServices> bootstrap() async {
+  final db = await AppDatabase.open();
+  final taskRepo = TaskRepositoryImpl(db);
+  final timetableRepo = TimetableRepositoryImpl(db);
+  final focusRepo = FocusRepositoryImpl(db);
+  final appBlocking = AppBlockingServiceStub();
+
+  late TaskController taskController;
+  late ReminderScheduler reminderScheduler;
+
+  final notifications = NotificationServiceImpl(
+    onAction: (payload, action) async {
+      if (payload == null) return;
+      final task = await taskRepo.getById(payload);
+      if (task == null) return;
+      switch (action) {
+        case 'complete':
+          await taskController.completeTask(task.id);
+        case 'snooze':
+          final reminders = await taskRepo.getRemindersForTask(task.id);
+          final active = reminders.where((r) => r.isActive).firstOrNull;
+          if (active != null) {
+            await reminderScheduler.snoozeReminder(
+              active,
+              const Duration(minutes: 15),
+            );
+          }
+        case 'open':
+        default:
+          break;
+      }
+    },
+  );
+
+  await notifications.initialize();
+  await notifications.requestPermissions();
+
+  reminderScheduler = ReminderSchedulerImpl(taskRepo, notifications);
+  final attachments = AttachmentServiceImpl(taskRepo);
+  final focusService = FocusServiceImpl(focusRepo, appBlocking);
+  await focusService.restoreActiveSession();
+
+  taskController = TaskController(
+    taskRepo,
+    reminderScheduler,
+    attachments,
+  );
+  final timetableController = TimetableController(timetableRepo);
+  final focusController = FocusController(focusService);
+  final appController = AppController(notifications);
+
+  await taskController.loadTasks();
+  await timetableController.load();
+
+  return AppServices(
+    taskRepository: taskRepo,
+    timetableRepository: timetableRepo,
+    focusRepository: focusRepo,
+    notificationService: notifications,
+    reminderScheduler: reminderScheduler,
+    attachmentService: attachments,
+    focusService: focusService,
+    appBlockingService: appBlocking,
+    taskController: taskController,
+    timetableController: timetableController,
+    focusController: focusController,
+    appController: appController,
+  );
+}
+
+extension _FirstOrNull<E> on Iterable<E> {
+  E? get firstOrNull {
+    final it = iterator;
+    return it.moveNext() ? it.current : null;
+  }
+}

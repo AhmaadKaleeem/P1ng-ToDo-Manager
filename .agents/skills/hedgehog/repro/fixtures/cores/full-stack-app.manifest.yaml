@@ -1,0 +1,10 @@
+name: full-stack-app
+flag: --ts-full-stack-app
+language: typescript
+engine: "^6.0.0"
+workspace: workspace/
+template: CLAUDE.core.md
+agents: [backend-eng, ux-planner, front-end-eng]
+skills: [hedgehog-loop, hedgehog-bootstrap, hedgehog-bootstrap-full-stack-app-core,
+         nx-generate, nx-run-tasks, nx-workspace, link-workspace-packages]
+vendor_skills: [GSAP]

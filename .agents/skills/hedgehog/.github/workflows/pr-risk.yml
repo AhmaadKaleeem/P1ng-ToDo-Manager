@@ -1,0 +1,150 @@
+name: PR Risk Labelling
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  path-based:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: false
+
+  execution-risk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # No checkout: this job runs under pull_request_target, whose token
+      # carries the base repo's write scope, so it must never place
+      # fork-controlled code in its trusted context. The diff is read as
+      # DATA through the API instead. The previous version checked out
+      # refs/pull/<n>/merge, which actions/checkout@v7 refuses by default
+      # (the "pwn request" guard) — so this job failed at the checkout step
+      # on every fork PR, before its scan ever ran. See check.yml's own
+      # header for why pull_request_target must not run fork code.
+      - name: Detect shell/dynamic execution changes
+        id: scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # The whole diff, as data. The API can hand us less than the full
+          # picture two ways — an omitted patch, or a truncated file list —
+          # and both are handled by failing safe below, so a blind spot
+          # becomes an over-label, never a silent miss. This is the parity
+          # the old whole-tree `git diff` had for free and this has to earn.
+          CHANGED=$(gh api "repos/$REPO/pulls/$PR" --jq '.changed_files')
+          FILES=$(gh api --paginate --slurp "repos/$REPO/pulls/$PR/files")
+          GOT=$(echo "$FILES" | jq '[.[][]] | length')
+
+          # Added lines from files whose patch is present, vendor-skills
+          # excluded to match the previous ':!vendor-skills' pathspec.
+          # Added lines start with a single '+'; the '+++' filter drops the
+          # file headers, so context width is irrelevant and no
+          # --unified=0 is needed. (--slurp wraps the paged responses as an
+          # array of arrays, hence '.[][]'.)
+          ADDED=$(echo "$FILES" | jq -r '.[][] | select((.filename | startswith("vendor-skills/")) | not) | .patch // ""' \
+            | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+
+          # GitHub omits `patch` for oversized (or binary) diffs. A text
+          # file with real additions but no patch is one we cannot inspect,
+          # so fail safe and let it count as a match. additions>0 keeps
+          # pure deletions/renames from tripping this.
+          BLIND=$(echo "$FILES" | jq -r '.[][] | select((.filename | startswith("vendor-skills/")) | not) | select(.additions > 0 and .patch == null) | .filename')
+
+          # The files endpoint caps at ~3000 files; a larger PR returns only
+          # a prefix. Any time we received fewer files than the PR actually
+          # changed, part of the diff is invisible — fail safe, same as an
+          # omitted patch.
+          # `[ cond ] && echo ...` is not used for these notices: the step
+          # runs under `bash -e`, so a false test makes the whole line
+          # return 1, and as the last command in the branch that fails the
+          # step right after match=true is written — leaving the labelling
+          # step (gated on match) skipped, i.e. the exact over-label this
+          # job fails safe to produce never gets applied. `if` has no such
+          # exit-status edge.
+          if [ "$GOT" -lt "$CHANGED" ] || [ -n "$BLIND" ] || echo "$ADDED" | grep -qE 'child_process|execFile|execSync|spawn\(|\bexec\(|\beval\(|new Function\(|Docker(file)?\b'; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+            if [ "$GOT" -lt "$CHANGED" ]; then
+              echo "::notice::risk:execution set conservatively — files endpoint returned $GOT of $CHANGED changed files"
+            fi
+            if [ -n "$BLIND" ]; then
+              echo "::notice::risk:execution set conservatively — no diff available to scan for: $(echo "$BLIND" | tr '\n' ' ')"
+            fi
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/github-script@v9
+        if: steps.scan.outputs.match == 'true'
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: ["risk:execution"],
+            });
+
+  size:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const changed = pr.additions + pr.deletions;
+            const files = pr.changed_files;
+
+            const labels = [];
+            if (files > 50 || changed > 1000) {
+              labels.push("risk:large");
+            }
+
+            let sizeLabel;
+            if (changed < 10) sizeLabel = "size:xs";
+            else if (changed < 100) sizeLabel = "size:s";
+            else if (changed < 500) sizeLabel = "size:m";
+            else if (changed < 1000) sizeLabel = "size:l";
+            else sizeLabel = "size:xl";
+            labels.push(sizeLabel);
+
+            const sizeLabels = ["size:xs", "size:s", "size:m", "size:l", "size:xl"];
+            const { data: existing } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const toRemove = existing
+              .map((l) => l.name)
+              .filter((n) => sizeLabels.includes(n) && n !== sizeLabel);
+            for (const name of toRemove) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                name,
+              });
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels,
+            });

@@ -1,0 +1,51 @@
+{
+  "name": "@skyf0xx/hedgehog",
+  "version": "6.4.0",
+  "description": "Install the Hedgehog build discipline (agents + skills) into a repo, for Claude Code, Cursor, or Gemini CLI.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skyf0xx/hedgehog.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "hedgehog": "bin/cli.mjs"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check": "npm run lint && node scripts/check.mjs",
+    "repro": "node --experimental-sqlite repro/run-all.mjs",
+    "release": "node scripts/bump-package-version.mjs"
+  },
+  "files": [
+    "bin",
+    "src/agents",
+    "src/db",
+    "src/hosts",
+    "src/registry",
+    "src/skills",
+    "src/templates",
+    "vendor-skills/BMAD"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "cursor",
+    "gemini-cli",
+    "agents-md",
+    "agents",
+    "skills",
+    "scaffold",
+    "hedgehog"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1"
+  }
+}

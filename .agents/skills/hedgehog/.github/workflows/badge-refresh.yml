@@ -1,0 +1,160 @@
+name: Refresh badges
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.BADGE_REFRESH_TOKEN }}
+          ref: master
+
+      - name: Compute total downloads across all packages
+        id: downloads
+        run: |
+          total=0
+          summary_rows=""
+          packages=$(python3 -c "
+          import json
+          data = json.load(open('src/registry/cores.json'))
+          names = ['@skyf0xx/hedgehog']
+          names += [c['package'] for c in data['cores']]
+          print('\n'.join(names))
+          ")
+          while IFS= read -r pkg; do
+            encoded=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$pkg")
+            count=$(curl -sSL "https://api.npmjs.org/downloads/range/2020-01-01:$(date +%Y-%m-%d)/$encoded" \
+              | python3 -c "
+          import json, sys
+          try:
+              data = json.load(sys.stdin)
+              if 'error' in data:
+                  print(0)
+              else:
+                  print(sum(d['downloads'] for d in data.get('downloads', [])))
+          except Exception:
+              print(0)
+          ")
+            echo "$pkg: $count"
+            summary_rows="${summary_rows}${pkg}|${count}"$'\n'
+            total=$((total + count))
+          done <<< "$packages"
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          echo "$summary_rows" > /tmp/download_rows.txt
+
+      - name: Write DOWNLOADS.md
+        run: |
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+
+          rows = []
+          with open('/tmp/download_rows.txt') as f:
+              for line in f:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  pkg, count = line.split('|')
+                  rows.append((pkg, int(count)))
+
+          rows.sort(key=lambda r: r[1], reverse=True)
+          total = sum(count for _, count in rows)
+          generated = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+
+          lines = [
+              "# Downloads",
+              "",
+              f"Total downloads across every published Hedgehog package, refreshed daily. Last updated {generated}.",
+              "",
+              "| Package | Downloads |",
+              "| --- | ---: |",
+          ]
+          for pkg, count in rows:
+              lines.append(f"| [`{pkg}`](https://www.npmjs.com/package/{pkg}) | {count:,} |")
+          lines.append(f"| **Total** | **{total:,}** |")
+          lines.append("")
+
+          with open('DOWNLOADS.md', 'w') as f:
+              f.write('\n'.join(lines))
+          PY
+
+      - name: Fetch badges
+        run: |
+          mkdir -p badges
+          total_formatted=$(python3 -c "print(f'{${{ steps.downloads.outputs.total }}:,}')")
+          curl -fsSL "https://img.shields.io/badge/downloads-${total_formatted}-blue?style=for-the-badge" -o badges/npm-downloads.svg
+          curl -fsSL "https://img.shields.io/badge/-Support%20Hedgehog-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" -o badges/kofi-top.svg
+          curl -fsSL "https://img.shields.io/github/stars/skyf0xx/hedgehog?style=for-the-badge&color=24292f&label=%E2%AD%90%20Star%20Us%20on%20GitHub&logo=github&logoColor=white" -o badges/github-stars-cta.svg
+
+      - name: Validate SVGs
+        run: |
+          for f in badges/npm-downloads.svg badges/kofi-top.svg badges/github-stars-cta.svg; do
+            if ! grep -q "<svg" "$f"; then
+              echo "Fetched file $f is not an SVG, aborting" >&2
+              cat "$f" >&2
+              exit 1
+            fi
+          done
+
+      - name: Scale badges to 40px height
+        run: |
+          python3 - <<'PY'
+          import re
+
+          for path in ["badges/npm-downloads.svg", "badges/kofi-top.svg", "badges/github-stars-cta.svg"]:
+              with open(path) as f:
+                  svg = f.read()
+
+              m = re.search(r'width="([\d.]+)" height="([\d.]+)"', svg)
+              orig_w, orig_h = float(m.group(1)), float(m.group(2))
+
+              target_h = 40
+              scale = target_h / orig_h
+              new_w = round(orig_w * scale, 2)
+
+              svg = svg.replace(
+                  f'width="{m.group(1)}" height="{m.group(2)}"',
+                  f'width="{new_w}" height="{target_h}" viewBox="0 0 {orig_w:g} {orig_h:g}"',
+                  1,
+              )
+
+              with open(path, "w") as f:
+                  f.write(svg)
+          PY
+
+      - name: Commit if changed
+        run: |
+          files="badges/npm-downloads.svg badges/kofi-top.svg badges/github-stars-cta.svg DOWNLOADS.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- $files; then
+            echo "No change in badges, skipping commit"
+            exit 0
+          fi
+          git add $files
+          git commit -m "chore: refresh badges"
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:master; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push rejected on attempt $attempt, rebasing onto origin/master"
+            git fetch origin master
+            git rebase origin/master || {
+              echo "Rebase hit a conflict; taking our regenerated files" >&2
+              # During a rebase, --theirs is the commit being replayed (ours).
+              git checkout --theirs -- $files || true
+              git add $files
+              git -c core.editor=true rebase --continue || exit 1
+            }
+            sleep $((attempt * 5))
+          done
+          echo "Could not push after 5 attempts" >&2
+          exit 1

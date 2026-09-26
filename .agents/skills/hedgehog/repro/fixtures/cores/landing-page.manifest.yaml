@@ -1,0 +1,10 @@
+name: landing-page
+flag: --landing-page
+language: typescript
+engine: "^6.0.0"
+workspace: workspace/
+template: CLAUDE.core.md
+agents: [landing-builder, landing-copywriter, landing-executor,
+         landing-visual-reviewer, landing-ux-reviewer]
+skills: [hedgehog-landing-loop, hedgehog-bootstrap-landing-page-core,
+         landing-shapes, landing-copy]
