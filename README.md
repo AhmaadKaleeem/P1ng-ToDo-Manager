@@ -1,6 +1,6 @@
 # Todow
 
-A local-first task and productivity manager designed for students.
+Todow is a task and productivity manager built for students.
 
 ## Features
 
