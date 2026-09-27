@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/attachment.dart';
 
@@ -30,49 +33,126 @@ class AttachmentRow extends StatelessWidget {
     return Icons.insert_drive_file_outlined;
   }
 
+  Future<void> _showRenameDialog(BuildContext context, TaskController controller) async {
+    final textController = TextEditingController(text: attachment.filename);
+    textController.selection = TextSelection(baseOffset: 0, extentOffset: textController.text.length);
+    String? errorText;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Rename attachment'),
+              content: Semantics(
+                label: 'Attachment name',
+                child: TextField(
+                  controller: textController,
+                  autofocus: true,
+                  maxLength: 200,
+                  decoration: InputDecoration(
+                    hintText: 'New name',
+                    errorText: errorText,
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await controller.renameAttachment(attachment.id, textController.text);
+                      if (context.mounted) Navigator.of(context).pop();
+                    } on ArgumentError catch (e) {
+                      setState(() {
+                        errorText = e.message.toString();
+                      });
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 60.0,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Row(
-          children: [
-            Icon(
-              _getIconData(attachment.mimeType),
-              size: 24.0,
-              color: _getIconColor(attachment.mimeType),
-            ),
-            const SizedBox(width: 12.0),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    attachment.filename,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
+    final controller = context.read<TaskController>();
+    final isImage = attachment.mimeType.startsWith('image/');
+    final thumbPath = isImage ? controller.getThumbnailPath(attachment.taskId, attachment.id) : null;
+    final hasThumb = thumbPath != null && File(thumbPath).existsSync();
+
+    return Semantics(
+      label: 'Attachment, ${attachment.filename}, ${_formatSize(attachment.sizeBytes)}. Long-press to rename.',
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: () => _showRenameDialog(context, controller),
+          child: Container(
+            height: 60.0,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              children: [
+                if (hasThumb)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(thumbPath),
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                        _getIconData(attachment.mimeType),
+                        size: 24.0,
+                        color: _getIconColor(attachment.mimeType),
+                      ),
                     ),
+                  )
+                else
+                  Icon(
+                    _getIconData(attachment.mimeType),
+                    size: 24.0,
+                    color: _getIconColor(attachment.mimeType),
                   ),
-                  Text(
-                    _formatSize(attachment.sizeBytes),
-                    style: const TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
-                    ),
+                const SizedBox(width: 12.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        attachment.filename,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        _formatSize(attachment.sizeBytes),
+                        style: const TextStyle(
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 20.0), // Reserved for future sync badge
+              ],
             ),
-            const SizedBox(width: 20.0), // Reserved for future sync badge
-          ],
+          ),
         ),
       ),
     );

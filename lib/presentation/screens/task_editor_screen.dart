@@ -21,15 +21,68 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
   late final TextEditingController _notes;
   late TaskPriority _priority;
   DateTime? _dueAt;
-  String _selectedRoadmap = _kRoadmaps.first;
+  late final List<String> _roadmaps;
+  late String _selectedRoadmap;
+  Task? _workingTask;
 
   @override
   void initState() {
     super.initState();
-    _title    = TextEditingController(text: widget.task?.title ?? '');
-    _notes    = TextEditingController(text: widget.task?.description ?? '');
-    _priority = widget.task?.priority ?? TaskPriority.none;
-    _dueAt    = widget.task?.dueAt;
+    _workingTask = widget.task;
+    _title    = TextEditingController(text: _workingTask?.title ?? '');
+    _notes    = TextEditingController(text: _workingTask?.description ?? '');
+    _priority = _workingTask?.priority ?? TaskPriority.none;
+    _dueAt    = _workingTask?.dueAt;
+    _roadmaps = List.of(_kRoadmaps);
+    final initialCategory = _workingTask?.category ?? _kRoadmaps.first;
+    if (!_roadmaps.contains(initialCategory)) {
+      _roadmaps.add(initialCategory);
+    }
+    _selectedRoadmap = initialCategory;
+  }
+
+  Future<void> _addNewRoadmap() async {
+    final ctrl = TextEditingController();
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppColors.surface,
+        title: const Text('New Project', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Project name',
+            hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.action)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w500)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, foregroundColor: AppColors.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+            child: const Text('Add', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty) {
+      setState(() {
+        if (!_roadmaps.contains(newName)) {
+          _roadmaps.add(newName);
+        }
+        _selectedRoadmap = newName;
+      });
+    }
   }
 
   @override
@@ -71,13 +124,25 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
     if (d != null) setState(() => _dueAt = d);
   }
 
+  Future<Task> _autoSave() async {
+    if (_workingTask != null) return _workingTask!;
+    final tc = context.read<TaskController>();
+    final title = _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim();
+    final task = await tc.createTask(title: title, description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap);
+    setState(() {
+      _workingTask = task;
+      if (_title.text.trim().isEmpty) _title.text = 'Untitled';
+    });
+    return task;
+  }
+
   void _save() {
     if (_title.text.trim().isEmpty) { Navigator.pop(context); return; }
     final tc = context.read<TaskController>();
-    if (widget.task == null) {
+    if (_workingTask == null) {
       tc.createTask(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap);
     } else {
-      tc.updateTask(widget.task!.copyWith(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap));
+      tc.updateTask(_workingTask!.copyWith(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap));
     }
     Navigator.pop(context);
   }
@@ -95,7 +160,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isNew = widget.task == null;
+    final isNew = _workingTask == null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -192,17 +257,17 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
                           padding: const EdgeInsets.only(right: 20),
                           child: Row(
                             children: [
-                              _ProjectPill(label: '+ New', selected: false, outlined: true, activeColor: AppColors.action, onTap: () {}),
+                              _ProjectPill(label: '+ New', selected: false, outlined: true, activeColor: AppColors.action, onTap: _addNewRoadmap),
                               const SizedBox(width: 8),
-                              for (int i = 0; i < _kRoadmaps.length; i++) ...[
+                              for (int i = 0; i < _roadmaps.length; i++) ...[
                                 _ProjectPill(
-                                  label: _kRoadmaps[i],
-                                  selected: _selectedRoadmap == _kRoadmaps[i],
+                                  label: _roadmaps[i],
+                                  selected: _selectedRoadmap == _roadmaps[i],
                                   outlined: false,
                                   activeColor: _getProjectColor(i),
-                                  onTap: () => setState(() => _selectedRoadmap = _kRoadmaps[i]),
+                                  onTap: () => setState(() => _selectedRoadmap = _roadmaps[i]),
                                 ),
-                                if (i < _kRoadmaps.length - 1) const SizedBox(width: 8),
+                                if (i < _roadmaps.length - 1) const SizedBox(width: 8),
                               ],
                             ],
                           ),
@@ -248,32 +313,39 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
                       const SizedBox(height: 12),
                       Container(
                         clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface, 
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AppColors.divider.withValues(alpha: 0.5), width: 1),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x0A000000), blurRadius: 20, offset: Offset(0, 8)),
+                          ],
+                        ),
                         child: Column(
                           children: [
                             TextField(
                               controller: _title, 
                               onChanged: (_) => setState(() {}), 
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textPrimary), 
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary, letterSpacing: -0.4), 
                               decoration: InputDecoration(
-                                hintText: 'Task name',
-                                hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.6), fontSize: 16, fontWeight: FontWeight.w400),
+                                hintText: 'What needs to be done?',
+                                hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5), fontSize: 18, fontWeight: FontWeight.w500),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+                                contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
                               ),
                             ),
-                            Container(height: 1, color: AppColors.divider.withValues(alpha: 0.5)),
+                            Container(height: 1, color: AppColors.divider.withValues(alpha: 0.3)),
                             TextField(
                               controller: _notes, 
                               onChanged: (_) => setState(() {}), 
                               maxLines: null, 
-                              minLines: 3, 
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textPrimary), 
+                              minLines: 4, 
+                              style: const TextStyle(fontSize: 15, height: 1.5, fontWeight: FontWeight.w400, color: AppColors.textPrimary), 
                               decoration: InputDecoration(
-                                hintText: 'Description (optional)',
-                                hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.6), fontSize: 14, fontWeight: FontWeight.w400),
+                                hintText: 'Add extra details, context, or links...',
+                                hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5), fontSize: 15, fontWeight: FontWeight.w400),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+                                contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                               ),
                             ),
                           ],
@@ -282,7 +354,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
 
                       const SizedBox(height: 28),
                       
-                      AttachmentsSection(task: widget.task),
+                      AttachmentsSection(task: _workingTask, onAutoSave: _autoSave),
                       const SizedBox(height: 40),
                     ],
                   ),

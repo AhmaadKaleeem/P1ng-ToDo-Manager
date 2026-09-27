@@ -90,17 +90,28 @@ class MockAttachmentRepository implements AttachmentRepository {
   Future<int> countByTask(String taskId) async => 0;
   @override
   Future<Map<String, int>> countsByTaskIds(List<String> ids) async => {};
+  @override
+  Future<void> updateFilename(String id, String newFilename) async {
+    final a = _attachments[id];
+    if (a != null) {
+      _attachments[id] = a.copyWith(filename: newFilename);
+    }
+  }
+  @override
+  Future<List<Attachment>> getAll() async => _attachments.values.toList();
 }
 
 class MockFileStorage implements FileStorage {
   @override
-  Future<String> save(String taskId, String attachmentId, String sourcePath, String filename) async => '';
+  Future<String> save(String taskId, String attachmentId, String sourcePath, String extension) async => '';
   @override
-  Future<void> delete(String taskId, String attachmentId, String filename) async {}
+  Future<void> delete(String taskId, String attachmentId) async {}
   @override
   Future<void> deleteTaskFolder(String taskId) async {}
   @override
-  Future<String> absolutePath(String taskId, String attachmentId, String filename) async => '';
+  Future<String> absolutePath(String taskId, String attachmentId) async => '';
+  @override
+  String thumbnailPath(String taskId, String attachmentId) => 'dummy.jpg';
 }
 
 void main() {

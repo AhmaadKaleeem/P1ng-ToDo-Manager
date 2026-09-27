@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:todow/data/local/app_database.dart';
 import 'package:todow/data/local/focus_repository_impl.dart';
 import 'package:todow/data/local/task_repository_impl.dart';
@@ -61,7 +65,13 @@ Future<AppServices> bootstrap() async {
   final timetableRepo = TimetableRepositoryImpl(db);
   final focusRepo = FocusRepositoryImpl(db);
   final attachmentRepo = AttachmentRepositoryImpl(db.db);
-  final fileStorage = FileStorageImpl();
+  final appDirPath = kIsWeb ? '' : (await getApplicationDocumentsDirectory()).path;
+  final fileStorage = FileStorageImpl(kIsWeb ? '/dummy' : p.join(appDirPath, 'attachments'));
+  
+  if (!kIsWeb) {
+    await migrateAttachmentPaths(attachmentRepo, p.join(appDirPath, 'attachments'));
+  }
+
   final appBlocking = AppBlockingServiceStub();
 
   late TaskController taskController;
@@ -134,5 +144,36 @@ extension _FirstOrNull<E> on Iterable<E> {
   E? get firstOrNull {
     final it = iterator;
     return it.moveNext() ? it.current : null;
+  }
+}
+
+Future<void> migrateAttachmentPaths(
+    AttachmentRepository repo, String rootPath) async {
+  final all = await repo.getAll();
+  for (final att in all) {
+    final oldPath = p.join(rootPath, att.taskId, '${att.id}_${att.filename}');
+    
+    // Compute extension with dot
+    final originalName = att.filename;
+    final dotIndex = originalName.lastIndexOf('.');
+    final ext = (dotIndex != -1 && dotIndex < originalName.length - 1)
+        ? originalName.substring(dotIndex).toLowerCase()
+        : '';
+        
+    final newPath = p.join(rootPath, att.taskId, '${att.id}$ext');
+    
+    final oldFile = File(oldPath);
+    final newFile = File(newPath);
+    
+    final oldExists = oldFile.existsSync();
+    final newExists = newFile.existsSync();
+    
+    if (oldExists && !newExists) {
+      oldFile.renameSync(newPath);
+    } else if (oldExists && newExists) {
+      print('Warning: Both old and new path exist for attachment ${att.id}');
+    } else if (!oldExists && !newExists) {
+      print('Warning: Orphaned attachment ${att.id} (no file on disk)');
+    }
   }
 }

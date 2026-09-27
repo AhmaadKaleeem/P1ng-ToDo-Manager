@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,8 +13,9 @@ import 'attachment_row.dart';
 
 class AttachmentsSection extends StatefulWidget {
   final Task? task;
+  final Future<Task> Function()? onAutoSave;
 
-  const AttachmentsSection({super.key, required this.task});
+  const AttachmentsSection({super.key, this.task, this.onAutoSave});
 
   @override
   State<AttachmentsSection> createState() => _AttachmentsSectionState();
@@ -29,10 +31,22 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     _loadAttachments();
   }
 
-  Future<void> _loadAttachments() async {
-    if (widget.task == null) return;
+  @override
+  void didUpdateWidget(AttachmentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.task?.id != oldWidget.task?.id) {
+      _loadAttachments();
+    }
+  }
+
+  Future<void> _loadAttachments([String? explicitTaskId]) async {
+    final tId = explicitTaskId ?? widget.task?.id;
+    if (tId == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     final controller = context.read<TaskController>();
-    final attachments = await controller.getAttachments(widget.task!.id);
+    final attachments = await controller.getAttachments(tId);
     if (mounted) {
       setState(() {
         _attachments = attachments;
@@ -42,7 +56,6 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
 
   Future<void> _pickFile() async {
-    if (widget.task == null) return;
     
     final allowedExts = kAllowedExtensions.map((e) => e.substring(1)).toList();
     
@@ -54,18 +67,29 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
-    if (file.path == null) return;
+    if (file.path == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Web attachments are not supported in local-only mode.')));
+      }
+      return;
+    }
 
     if (!mounted) return;
     final controller = context.read<TaskController>();
     
     try {
+      final sizeBytes = await File(file.path!).length();
+      validateAttachment(file.name, sizeBytes);
+      
+      final taskToAttach = widget.task ?? await widget.onAutoSave?.call();
+      if (taskToAttach == null) return;
+
       final ext = file.extension?.toLowerCase() ?? '';
       final mimeType = ext == 'pdf' ? 'application/pdf' : 
           ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'].contains(ext) ? 'image/$ext' : 'application/octet-stream';
 
-      await controller.attachFile(widget.task!.id, file.path!, file.name, mimeType);
-      _loadAttachments();
+      await controller.attachFile(taskToAttach.id, file.path!, file.name, mimeType);
+      _loadAttachments(taskToAttach.id);
     } on FileTooLargeException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -94,7 +118,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.task == null) {
+    if (widget.task == null && widget.onAutoSave == null) {
       return const SizedBox.shrink();
     }
 
@@ -128,11 +152,13 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
         ),
         const SizedBox(height: 12),
         Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14.0),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.divider.withValues(alpha: 0.5), width: 1),
             boxShadow: const [
-              BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
+              BoxShadow(color: Color(0x0A000000), blurRadius: 20, offset: Offset(0, 8)),
             ],
           ),
           child: _isLoading 

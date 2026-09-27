@@ -56,4 +56,23 @@ class AttachmentRepositoryImpl implements AttachmentRepository {
         ids);
     return {for (final r in rows) r['task_id'] as String: r['c'] as int};
   }
+
+  @override
+  Future<void> updateFilename(String id, String newFilename) async {
+    await _db.update(
+      _table,
+      {
+        'filename': newFilename,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<List<Attachment>> getAll() async {
+    final rows = await _db.query(_table);
+    return rows.map(Attachment.fromMap).toList();
+  }
 }

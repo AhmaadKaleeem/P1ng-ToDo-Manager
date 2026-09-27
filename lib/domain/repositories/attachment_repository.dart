@@ -8,4 +8,6 @@ abstract class AttachmentRepository {
   Future<void> deleteByTask(String taskId);
   Future<int> countByTask(String taskId);
   Future<Map<String, int>> countsByTaskIds(List<String> ids);
+  Future<void> updateFilename(String id, String newFilename);
+  Future<List<Attachment>> getAll();
 }

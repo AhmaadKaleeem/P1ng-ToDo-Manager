@@ -10,6 +10,8 @@ import 'package:todow/domain/repositories/task_repository.dart';
 import 'package:todow/domain/repositories/attachment_repository.dart';
 import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
+import 'dart:isolate';
+import 'package:todow/data/services/thumbnail_generator.dart';
 import 'package:todow/domain/attachment_limits.dart';
 import 'package:todow/data/services/attachment_hasher.dart';
 import 'package:uuid/uuid.dart';
@@ -261,6 +263,23 @@ class TaskController extends ChangeNotifier {
   Future<List<Attachment>> getAttachments(String taskId) =>
       _attachmentRepo.getByTask(taskId);
 
+  String getThumbnailPath(String taskId, String attachmentId) =>
+      _fileStorage.thumbnailPath(taskId, attachmentId);
+
+  Future<void> renameAttachment(String attachmentId, String newFilename) async {
+    final trimmed = newFilename.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Filename cannot be empty or whitespace');
+    }
+    if (trimmed.contains('/') || trimmed.contains('\\')) {
+      throw ArgumentError('Filename cannot contain path separators');
+    }
+    if (trimmed.length > 200) {
+      throw ArgumentError('Filename cannot exceed 200 characters');
+    }
+    await _attachmentRepo.updateFilename(attachmentId, trimmed);
+  }
+
   Future<Map<String, int>> attachmentCounts(List<String> taskIds) =>
       _attachmentRepo.countsByTaskIds(taskIds);
 
@@ -274,7 +293,19 @@ class TaskController extends ChangeNotifier {
     final attachmentId = _uuid.v4();
     final contentHash = await hashFile(sourcePath);
     
-    await _fileStorage.save(taskId, attachmentId, sourcePath, filename);
+    final dotIndex = filename.lastIndexOf('.');
+    final ext = (dotIndex != -1 && dotIndex < filename.length - 1) 
+        ? filename.substring(dotIndex).toLowerCase() 
+        : '';
+    await _fileStorage.save(taskId, attachmentId, sourcePath, ext);
+    
+    if (mimeType.startsWith('image/')) {
+      final thumbPath = _fileStorage.thumbnailPath(taskId, attachmentId);
+      await Isolate.run(() => ThumbnailGenerator().generate(
+        sourcePath: sourcePath,
+        outputPath: thumbPath,
+      ));
+    }
 
     final attachment = Attachment(
       id: attachmentId,
@@ -297,13 +328,13 @@ class TaskController extends ChangeNotifier {
     final att = await _attachmentRepo.getById(attachmentId);
     if (att == null) return;
     
-    await _fileStorage.delete(att.taskId, att.id, att.filename);
+    await _fileStorage.delete(att.taskId, att.id);
     await _attachmentRepo.delete(attachmentId);
     await loadTasks();
   }
 
   Future<void> openAttachment(Attachment att) async {
-    final path = await _fileStorage.absolutePath(att.taskId, att.id, att.filename);
+    final path = await _fileStorage.absolutePath(att.taskId, att.id);
     await open_filex.OpenFilex.open(path);
   }
 
