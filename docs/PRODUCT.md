@@ -15,15 +15,23 @@ CAPTURE → ORGANIZE → SCHEDULE → REMIND → FOCUS → COMPLETE
 
 ### FR-01 Task Management
 Create, edit, complete, reopen, delete, archive. Title, description, priority, start date/time, due date/time, tags/categories, subtasks. Search, filter, sort.
-**Quick duplicate**: Clone complex recurring tasks instantly, so you spend less time retyping and more time executing.
+Quick duplicate. Clone complex recurring tasks instantly so you spend less time retyping and more time executing.
 
-#### FR-01.v2 — Advanced Task Interactions (shipped)
-Three tactile interaction patterns on the active task list — no extra taps, no nested menus:
+#### FR-01.v2 Advanced Task Interactions (Shipped)
+Managing your workload should feel fluid and instant. We built three tactile interactions into the active task list so you can organize your day without opening a single menu.
 
-- **Drag to reorder**: Long-press any task row and drag it to its correct position. Order writes back to SQLite immediately, so it survives restarts.
-- **Swipe to act**: Swipe a row to reveal two actions — amber Complete (or Reopen) and red Delete. One gesture, zero confirmation dialogs.
-- **Double-tap to insert**: Double-tap any task to drop a text field below it. Type a title and hit Enter to create the next step right where you need it. Tap away to dismiss without creating.
-- **Quick Add bar**: Persistent pill at the bottom of the task list. Type and submit, or tap `+` when empty to open the full task editor.
+Drag to reorder
+Grab any task row and move it to the exact spot you want. The app writes the new order directly to the database so your plan survives a restart. You spend zero time manually numbering priorities and more time actually working.
+
+Swipe to act
+Swipe a row left to reveal solid floating buttons for Complete and Delete. One smooth gesture takes care of the action without annoying confirmation popups. You clear out finished work faster and keep the list clean.
+
+Double tap to insert
+Double tap the space between any two tasks to drop a text field exactly there. Type a title and hit Enter to create the next step right where you need it. This keeps your flow unbroken when you remember a missing step.
+
+Splash screen skip
+Returning users see a personalized greeting and can tap a single button to skip the animation. You get straight to your task list without waiting. New users get a smooth introduction that asks for their name right away so they feel at home.
+
 
 
 ### FR-02 Attachments
