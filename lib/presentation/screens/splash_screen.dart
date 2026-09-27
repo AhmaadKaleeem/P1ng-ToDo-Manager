@@ -4,9 +4,58 @@ import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/bootstrap.dart';
 import 'package:todow/core/routing/app_router.dart';
 
-class SplashScreen extends StatelessWidget {
+import 'package:shared_preferences/shared_preferences.dart';
+
+class SplashScreen extends StatefulWidget {
   final AppServices services;
   const SplashScreen({super.key, required this.services});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  
+  bool _needsName = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('username');
+    final hasName = name != null && name.isNotEmpty;
+    
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+
+    if (hasName) {
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+    } else {
+      setState(() {
+        _needsName = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _proceed() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', name);
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, AppRoutes.home);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,19 +162,10 @@ class SplashScreen extends StatelessWidget {
                   
                   const SizedBox(height: 40),
                   
-                  // MIDDLE: Typography Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: const Text(
-                    "Focus deeply.\nExecute flawlessly.",
-                    style: TextStyle(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      height: 1.15,
-                      letterSpacing: -1.2,
-                    ),
-                  ).animate().fadeIn(duration: 800.ms).slideY(begin: 0.2, curve: Curves.easeOutQuart),
+                // MIDDLE: Typography Section
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 32),
+                  child: _DynamicTypography(),
                 ),
                 
                 const SizedBox(height: 56),
@@ -135,13 +175,11 @@ class SplashScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Column(
                     children: [
-                      // Circular Arrow Button
-                      // Circular Arrow Button with Tactile Feedback
-                      _AnimatedProceedButton(
-                        onPressed: () {
-                          // Impeccable smooth route transition
-                          Navigator.pushReplacementNamed(context, AppRoutes.home);
-                        },
+                      // Expandable name input / Proceed button
+                      _ExpandableNameInput(
+                        needsName: _needsName,
+                        controller: _nameController,
+                        onProceed: _proceed,
                       ).animate().fadeIn(delay: 600.ms).scale(begin: const Offset(0.5, 0.5), curve: Curves.elasticOut, duration: 1000.ms),
                       
                       const SizedBox(height: 40),
@@ -227,60 +265,181 @@ class _FloatingPill extends StatelessWidget {
   }
 }
 
-class _AnimatedProceedButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  const _AnimatedProceedButton({required this.onPressed});
-
+class _DynamicTypography extends StatefulWidget {
+  const _DynamicTypography();
   @override
-  State<_AnimatedProceedButton> createState() => _AnimatedProceedButtonState();
+  State<_DynamicTypography> createState() => _DynamicTypographyState();
 }
 
-class _AnimatedProceedButtonState extends State<_AnimatedProceedButton> {
-  bool _isPressed = false;
+class _DynamicTypographyState extends State<_DynamicTypography> {
+  int _currentIndex = 0;
+  final List<String> _phrases = [
+    "Focus deeply.\nExecute flawlessly.",
+    "Master your time.\nOwn your outcomes.",
+    "Plan precision.\nAchieve consistency."
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _cycleText();
+  }
+
+  void _cycleText() async {
+    while (mounted) {
+      await Future.delayed(const Duration(seconds: 4));
+      if (!mounted) break;
+      setState(() {
+        _currentIndex = (_currentIndex + 1) % _phrases.length;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 800),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.0, 0.1),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        _phrases[_currentIndex],
+        key: ValueKey<int>(_currentIndex),
+        style: const TextStyle(
+          fontSize: 44,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textPrimary,
+          height: 1.15,
+          letterSpacing: -1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpandableNameInput extends StatefulWidget {
+  final bool needsName;
+  final TextEditingController controller;
+  final VoidCallback onProceed;
+  const _ExpandableNameInput({required this.needsName, required this.controller, required this.onProceed});
+
+  @override
+  State<_ExpandableNameInput> createState() => _ExpandableNameInputState();
+}
+
+class _ExpandableNameInputState extends State<_ExpandableNameInput> {
+  bool _isPressed = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.needsName;
+  }
+
+  @override
+  void didUpdateWidget(_ExpandableNameInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.needsName != oldWidget.needsName) {
+      setState(() => _expanded = widget.needsName);
+    }
+  }
+
+  void _handleTap() {
+    setState(() => _isPressed = false);
+    if (_expanded) {
+      widget.onProceed();
+    } else {
+      widget.onProceed();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = _expanded ? 300.0 : 90.0;
+    
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        Future.delayed(const Duration(milliseconds: 150), widget.onPressed);
-      },
+      onTapUp: (_) => _handleTap(),
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.85 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _isPressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 150),
         curve: Curves.easeOutCubic,
-        child: SizedBox(
-          width: 90,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutExpo,
+          width: width,
           height: 90,
+          decoration: BoxDecoration(
+            color: _expanded ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(45),
+            boxShadow: _expanded ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              )
+            ] : null,
+          ),
           child: Stack(
-            alignment: Alignment.center,
+            alignment: Alignment.centerRight,
             children: [
-              // Outer ring track
-              const SizedBox(
-                width: 90,
-                height: 90,
-                child: CircularProgressIndicator(
-                  value: 1.0,
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white30),
+              if (!_expanded) ...[
+                // Outer ring track
+                const SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: CircularProgressIndicator(
+                    value: 1.0,
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white30),
+                  ),
                 ),
-              ),
-              // Segmented dark ring portion
-              const SizedBox(
-                width: 90,
-                height: 90,
-                child: CircularProgressIndicator(
-                  value: 0.25,
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.background), 
+                // Segmented dark ring portion
+                const SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: CircularProgressIndicator(
+                    value: 0.25,
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.background), 
+                  ),
                 ),
-              ),
+              ],
+              
+              if (_expanded)
+                Positioned(
+                  left: 24,
+                  right: 90,
+                  child: TextField(
+                    controller: widget.controller,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    decoration: const InputDecoration(
+                      hintText: 'Your name',
+                      hintStyle: TextStyle(fontSize: 18, color: Colors.black38),
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => widget.onProceed(),
+                  ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
+                ),
+              
               // Inner Orange Button
               Container(
                 width: 74,
                 height: 74,
+                margin: const EdgeInsets.only(right: 8),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF97316),
                   shape: BoxShape.circle,
