@@ -1,44 +1,90 @@
-# P1ng Todo Manager
+# Todow — Task Manager for Students
 
-A task manager built for students. It keeps assignments, deadlines, reminders, a personal timetable, and focus sessions in a single local application.
+Most productivity apps treat your to-do list like a spreadsheet. Todow treats it like a canvas — a warm, focused space where your day's work lives in one place and stays there until you deal with it.
 
-I built this because standard reminders are too easy to dismiss. P1ng actively reminds you about a task until you explicitly complete, snooze, or reschedule it.
+Built for students who have too many deadlines and too little time to manage them.
 
-## Features
+---
 
-- **Persistent Reminders**: Tasks keep notifying you until you act on them.
-- **University Timetable**: Manage your class schedule. You can import timetables by uploading a CSV or an image.
-- **Focus Sessions**: Built-in timers for study blocks.
-- **Local Storage**: Everything is stored in SQLite on your device. There is no account requirement and no backend sync in the MVP.
+## What's Shipped
+
+### Task List Interactions
+Everything you need to manage your list without lifting a finger from the task:
+
+- **Drag to reorder** — Long-press any task and drag it into position. Order persists across restarts.
+- **Swipe to act** — Swipe right to complete (or reopen). Swipe left to delete. No confirmation dialogs.
+- **Double-tap to insert** — Double-tap a task to open an inline text field directly below it. Type, Enter to create. Tap away to dismiss.
+- **Quick Add bar** — The persistent pill at the bottom of your list. Type a title and submit, or tap `+` to open the full task editor.
+- **Quick duplicate** — Clone any task in one tap. Useful for recurring assignments.
+
+### Task Editor
+A full editor for when you need more than a title. Set priority, due date, start time, category, subtasks, attachments, and reminder presets — all in one screen.
+
+### Reminders That Actually Work
+Todow doesn't let a task quietly expire. Reminders keep firing until you complete, snooze, or reschedule the task. Three built-in presets:
+- **Normal** — 1 day before + at deadline
+- **Assignment** — 2 days, 1 day, 3 hours, 30 minutes before
+- **Critical** — 3 days, 2 days, 1 day, 3h, 1h, 30m, and at deadline
+
+### Timetable
+Manage your class schedule by hand, or import it. Supported import formats: CSV and image (OCR). Every import goes through a draft-review-confirm pipeline before it touches the database.
+
+### Focus Sessions
+Link a task to a focus session, set a timer, and go. Pause, resume, or end early. Session state survives app restarts.
+
+### Roadmap
+Track goals and milestones. Import and export via CSV with a fixed schema.
+
+---
 
 ## Tech Stack
 
-- **Framework**: Flutter
-- **State Management**: Riverpod
-- **Database**: SQLite (via Drift)
+| Layer | Technology |
+|---|---|
+| Framework | Flutter |
+| State Management | Provider + ChangeNotifier |
+| Database | SQLite (via `sqflite`) |
+| Animations | `flutter_animate` |
+| Swipe Actions | `flutter_slidable` |
+
+---
 
 ## Architecture
 
-The project uses a feature-first layered architecture separating Presentation, Application, Domain, and Data.
+Clean layered architecture: **Presentation → Controller → Domain → Data**.
 
-Because the app is strictly local-first, the database layer relies on Drift for type-safe SQLite persistence. Reminders are scheduled directly on the device OS rather than relying on a push notification server. Timetable imports (CSV and OCR image processing) run through a strict draft-review-confirm pipeline before hitting the database.
+- `lib/domain/` — Pure Dart models and repository interfaces. No Flutter imports. Fully testable.
+- `lib/data/` — SQLite implementations. Schema migration handled per-version.
+- `lib/presentation/` — Screens, controllers (`ChangeNotifier`), and widgets.
 
-Design decisions and architectural boundaries are documented in `docs/`:
-- [Product Scope](docs/PRODUCT.md)
-- [Architecture & State](docs/ARCHITECTURE.md)
-- [Design Constraints](docs/DESIGN.md)
-- [Flows](docs/FLOWS.md)
+Design decisions are in [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md).  
+Product scope and requirements are in [`docs/PRODUCT.md`](docs/PRODUCT.md).  
+Architecture details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-Future plans and upcoming features are tracked in the [Roadmap](docs/ROADMAP.md).
+---
 
 ## Development Setup
 
-1. Make sure Flutter is installed.
-2. Get dependencies:
-   ```bash
-   flutter pub get
-   ```
-3. Run the app:
-   ```bash
-   flutter run
-   ```
+```bash
+# Install dependencies
+flutter pub get
+
+# Run (any connected device or emulator)
+flutter run
+
+# Run all tests
+flutter test
+
+# Static analysis
+flutter analyze
+```
+
+All 8 tests pass. No issues found.
+
+---
+
+## Design Principles
+
+Todow is a **warm light task canvas**. Cream background (`#F5F1EA`), white cards, soft shadows. No dark mode tropes, no gradients, no gamification. Azure for actions. Amber for attention. Everything else is structural.
+
+See [`docs/DESIGN_SPEC.md`](docs/DESIGN_SPEC.md) for the full visual contract and component recipes.

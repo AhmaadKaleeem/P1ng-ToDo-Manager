@@ -15,6 +15,16 @@ CAPTURE → ORGANIZE → SCHEDULE → REMIND → FOCUS → COMPLETE
 
 ### FR-01 Task Management
 Create, edit, complete, reopen, delete, archive. Title, description, priority, start date/time, due date/time, tags/categories, subtasks. Search, filter, sort.
+**Quick duplicate**: Clone complex recurring tasks instantly, so you spend less time retyping and more time executing.
+
+#### FR-01.v2 — Advanced Task Interactions (shipped)
+Three tactile interaction patterns on the active task list — no extra taps, no nested menus:
+
+- **Drag to reorder**: Long-press any task row and drag it to its correct position. Order writes back to SQLite immediately, so it survives restarts.
+- **Swipe to act**: Swipe a row to reveal two actions — amber Complete (or Reopen) and red Delete. One gesture, zero confirmation dialogs.
+- **Double-tap to insert**: Double-tap any task to drop a text field below it. Type a title and hit Enter to create the next step right where you need it. Tap away to dismiss without creating.
+- **Quick Add bar**: Persistent pill at the bottom of the task list. Type and submit, or tap `+` when empty to open the full task editor.
+
 
 ### FR-02 Attachments
 Support local attachments (images, PDFs, local files). Attach, open, remove. SQLite stores metadata, local storage holds files.
