@@ -1,24 +1,24 @@
-import 'package:p1ng_todo_manager/data/local/app_database.dart';
-import 'package:p1ng_todo_manager/data/local/focus_repository_impl.dart';
-import 'package:p1ng_todo_manager/data/local/task_repository_impl.dart';
-import 'package:p1ng_todo_manager/data/local/timetable_repository_impl.dart';
-import 'package:p1ng_todo_manager/data/services/app_blocking_service_stub.dart';
-import 'package:p1ng_todo_manager/data/services/attachment_service_impl.dart';
-import 'package:p1ng_todo_manager/data/services/focus_service_impl.dart';
-import 'package:p1ng_todo_manager/data/services/notification_service_impl.dart';
-import 'package:p1ng_todo_manager/data/services/reminder_scheduler_impl.dart';
-import 'package:p1ng_todo_manager/domain/repositories/focus_repository.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
-import 'package:p1ng_todo_manager/domain/repositories/timetable_repository.dart';
-import 'package:p1ng_todo_manager/domain/services/app_blocking_service.dart';
-import 'package:p1ng_todo_manager/domain/services/attachment_service.dart';
-import 'package:p1ng_todo_manager/domain/services/focus_service.dart';
-import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
-import 'package:p1ng_todo_manager/domain/services/reminder_scheduler.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/app_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/focus_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/task_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/timetable_controller.dart';
+import 'package:todow/data/local/app_database.dart';
+import 'package:todow/data/local/focus_repository_impl.dart';
+import 'package:todow/data/local/task_repository_impl.dart';
+import 'package:todow/data/local/timetable_repository_impl.dart';
+import 'package:todow/data/services/app_blocking_service_stub.dart';
+import 'package:todow/data/services/attachment_service_impl.dart';
+import 'package:todow/data/services/focus_service_impl.dart';
+import 'package:todow/data/services/notification_service_impl.dart';
+import 'package:todow/data/services/reminder_scheduler_impl.dart';
+import 'package:todow/domain/repositories/focus_repository.dart';
+import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/repositories/timetable_repository.dart';
+import 'package:todow/domain/services/app_blocking_service.dart';
+import 'package:todow/domain/services/attachment_service.dart';
+import 'package:todow/domain/services/focus_service.dart';
+import 'package:todow/domain/services/notification_service.dart';
+import 'package:todow/domain/services/reminder_scheduler.dart';
+import 'package:todow/presentation/controllers/app_controller.dart';
+import 'package:todow/presentation/controllers/focus_controller.dart';
+import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/controllers/timetable_controller.dart';
 
 class AppServices {
   AppServices({

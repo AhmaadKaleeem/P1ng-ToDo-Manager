@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/presentation/app.dart';
-import 'package:p1ng_todo_manager/presentation/screens/splash_screen.dart';
+import 'package:todow/bootstrap.dart';
+import 'package:todow/presentation/app.dart';
+import 'package:todow/presentation/screens/splash_screen.dart';
 
 abstract final class AppRoutes {
   static const String splash = '/';

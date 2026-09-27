@@ -1,6 +1,6 @@
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/focus_session.dart';
+import 'package:todow/domain/models/task.dart';
 
 abstract class FocusService {
   FocusSession? get currentSession;

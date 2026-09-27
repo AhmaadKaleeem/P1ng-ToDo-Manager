@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
+import 'package:todow/core/theme/app_colors.dart';
 
 
 class AppEmptyState extends StatelessWidget {
@@ -17,6 +17,7 @@ class AppEmptyState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary()))
+                style: TextStyle(color: AppColors.textSecondary))
           ])));
 }
+

@@ -1,5 +1,5 @@
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/timetable_entry.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
 
 abstract class TimetableRepository {
   Future<List<TimetableEntry>> getAll();

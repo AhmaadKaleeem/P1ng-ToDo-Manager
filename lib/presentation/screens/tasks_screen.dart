@@ -1,24 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
-import 'package:p1ng_todo_manager/core/utils/date_format.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/models/timetable_entry.dart';
-import 'package:p1ng_todo_manager/domain/reminders/reminder_presets.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/focus_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/task_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/timetable_controller.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:todow/core/theme/app_colors.dart';
+import 'package:todow/core/utils/date_format.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:provider/provider.dart';
 
-import 'package:p1ng_todo_manager/presentation/app.dart';
-import 'package:p1ng_todo_manager/presentation/widgets/empty_state.dart';
+import 'package:todow/presentation/app.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -85,7 +73,7 @@ class _TasksScreenState extends State<TasksScreen> {
         ),
       ]),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showTaskEditor(context),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TaskEditorScreen())),
         icon: const Icon(Icons.add),
         label: const Text('Add task'),
       ),
@@ -102,7 +90,7 @@ class TaskRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.read<TaskController>();
     final dueColor =
-        task.isOverdue ? AppColors.alert : AppColors.textSecondary();
+        task.isOverdue ? AppColors.alert : AppColors.textSecondary;
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(8),
@@ -115,7 +103,7 @@ class TaskRow extends StatelessWidget {
                   : Icons.radio_button_unchecked,
               color: task.isCompleted
                   ? AppColors.action
-                  : AppColors.textSecondary()),
+                  : AppColors.textSecondary),
           tooltip: task.isCompleted ? 'Reopen task' : 'Complete task',
           onPressed: () => task.isCompleted
               ? controller.reopenTask(task.id)
@@ -141,12 +129,14 @@ class TaskRow extends StatelessWidget {
         ]),
         trailing: PopupMenuButton<String>(
           onSelected: (value) async {
-            if (value == 'edit') await showTaskEditor(context, task: task);
+            if (value == 'edit') await Navigator.of(context).push(MaterialPageRoute(builder: (_) => TaskEditorScreen(task: task)));
+            if (value == 'duplicate') await controller.duplicateTask(task.id);
             if (value == 'archive') await controller.archiveTask(task.id);
             if (value == 'delete') await controller.deleteTask(task.id);
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('Edit')),
+            PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
             PopupMenuItem(value: 'archive', child: Text('Archive')),
             PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
@@ -155,4 +145,5 @@ class TaskRow extends StatelessWidget {
     );
   }
 }
+
 

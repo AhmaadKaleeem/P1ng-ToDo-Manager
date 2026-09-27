@@ -1,4 +1,4 @@
-import 'package:p1ng_todo_manager/domain/services/app_blocking_service.dart';
+import 'package:todow/domain/services/app_blocking_service.dart';
 
 /// MVP 0.1 stub — true app blocking requires native Android/iOS integration.
 class AppBlockingServiceStub implements AppBlockingService {

@@ -12,9 +12,13 @@ class AppDatabase {
     if (_instance != null) return _instance!;
     _instance = AppDatabase._();
     final dbPath =
-        pathOverride ?? join(await getDatabasesPath(), 'p1ng_todo_manager.db');
-    _db =
-        await openDatabase(dbPath, version: 1, onCreate: createDatabaseSchema);
+        pathOverride ?? join(await getDatabasesPath(), 'todow.db');
+    _db = await openDatabase(
+      dbPath, 
+      version: 2, 
+      onCreate: createDatabaseSchema,
+      onUpgrade: upgradeDatabaseSchema,
+    );
     return _instance!;
   }
 

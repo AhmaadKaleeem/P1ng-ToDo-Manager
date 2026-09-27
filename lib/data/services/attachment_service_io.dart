@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:p1ng_todo_manager/data/local/task_repository_impl.dart';
-import 'package:p1ng_todo_manager/domain/models/attachment.dart';
-import 'package:p1ng_todo_manager/domain/services/attachment_service.dart';
+import 'package:todow/data/local/task_repository_impl.dart';
+import 'package:todow/domain/models/attachment.dart';
+import 'package:todow/domain/services/attachment_service.dart';
 import 'package:uuid/uuid.dart';
 
 class AttachmentServiceImpl implements AttachmentService {

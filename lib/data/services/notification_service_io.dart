@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/services/notification_service.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 

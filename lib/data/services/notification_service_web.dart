@@ -1,5 +1,5 @@
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/services/notification_service.dart';
 
 typedef NotificationTapHandler = void Function(String? payload, String? action);
 

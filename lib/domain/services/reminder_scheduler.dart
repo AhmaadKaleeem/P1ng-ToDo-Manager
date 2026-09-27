@@ -1,5 +1,5 @@
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/task.dart';
 
 abstract class ReminderScheduler {
   Future<void> syncTaskReminders(Task task);

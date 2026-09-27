@@ -1,7 +1,11 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
-import 'package:p1ng_todo_manager/presentation/app.dart';
+import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:todow/bootstrap.dart';
+import 'package:todow/core/theme/app_colors.dart';
+import 'package:todow/presentation/app.dart';
+import 'package:todow/presentation/screens/home_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.services, super.key});
@@ -10,40 +14,66 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin {
+class AppShellState extends State<AppShell> with TickerProviderStateMixin {
   int _index = 0;
   late final AnimationController _animationController;
+  ui.FragmentProgram? _program;
+  late final Ticker _ticker;
+  final ValueNotifier<double> _time = ValueNotifier(0.0);
   
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this, 
-      duration: const Duration(milliseconds: 300)
+      duration: const Duration(milliseconds: 300),
     );
+    _loadShader();
+    _ticker = createTicker((elapsed) {
+      if (_animationController.value > 0.001) {
+        _time.value += 0.016; // Simulate ~60fps progression
+      }
+    });
+    _ticker.start();
+  }
+
+  Future<void> _loadShader() async {
+    try {
+      final program = await ui.FragmentProgram.fromAsset('shaders/void.frag');
+      setState(() {
+        _program = program;
+      });
+    } catch (e) {
+      debugPrint('Failed to load void shader: $e');
+    }
   }
 
   @override
   void dispose() {
+    _ticker.dispose();
+    _time.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
   void toggleDrawer() {
-    if (_animationController.isDismissed) {
-      _animationController.forward();
+    final spring = SpringDescription(
+      mass: 1.0,
+      stiffness: 120.0,
+      damping: 14.0,
+    );
+    
+    if (_animationController.isDismissed || _animationController.status == AnimationStatus.reverse) {
+      _animationController.animateWith(SpringSimulation(spring, _animationController.value, 1.0, _animationController.velocity));
     } else {
-      _animationController.reverse();
+      _animationController.animateWith(SpringSimulation(spring, _animationController.value, 0.0, _animationController.velocity));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      TodayScreen(onFocus: () => setState(() {
-        _index = 2;
-        _animationController.reverse();
-      })),
+      const HomeScreen(),
       const TasksScreen(),
       const FocusScreen(),
       const TimetableScreen(),
@@ -53,6 +83,17 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
       backgroundColor: AppColors.surfaceElevated,
       body: Stack(
         children: [
+          // Shader Void Background
+          if (_program != null)
+            AnimatedBuilder(
+              animation: _time,
+              builder: (context, _) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: _VoidShaderPainter(_program!, _time.value),
+                );
+              }
+            ),
           // Drawer Menu
           SafeArea(
             child: Padding(
@@ -88,13 +129,17 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
           AnimatedBuilder(
             animation: _animationController,
             builder: (context, child) {
-              final slide = 250.0 * _animationController.value;
-              final scale = 1.0 - (0.12 * _animationController.value);
+              final slide = 280.0 * _animationController.value;
+              final scale = 1.0 - (0.15 * _animationController.value);
               final radius = _animationController.value * 32.0;
+              final rotateY = -0.25 * _animationController.value;
+              
               return Transform(
                 transform: Matrix4.identity()
-                  ..translate(slide)
-                  ..scale(scale),
+                  ..setEntry(3, 2, 0.001) // True 3D perspective
+                  ..translate(slide, 0.0, 0.0)
+                  ..scale(scale)
+                  ..rotateY(rotateY),
                 alignment: Alignment.centerLeft,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(radius),
@@ -133,10 +178,10 @@ class _DrawerItem extends StatelessWidget {
         highlightColor: Colors.transparent,
         child: Row(
           children: [
-            Icon(icon, color: selected ? AppColors.action : AppColors.textSecondary(), size: 22),
+            Icon(icon, color: selected ? AppColors.action : AppColors.textSecondary, size: 22),
             const SizedBox(width: 16),
             Text(label, style: TextStyle(
-              color: selected ? AppColors.textPrimary : AppColors.textSecondary(),
+              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
               fontSize: 15,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             )),
@@ -167,5 +212,28 @@ class _SparklinePainter extends CustomPainter {
   }
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _VoidShaderPainter extends CustomPainter {
+  final ui.FragmentProgram program;
+  final double time;
+
+  _VoidShaderPainter(this.program, this.time);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shader = program.fragmentShader();
+    shader.setFloat(0, size.width);
+    shader.setFloat(1, size.height);
+    shader.setFloat(2, time);
+
+    final paint = Paint()..shader = shader;
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VoidShaderPainter oldDelegate) {
+    return oldDelegate.time != time;
+  }
 }
 

@@ -1,6 +1,6 @@
-import 'package:p1ng_todo_manager/data/local/task_repository_impl.dart';
-import 'package:p1ng_todo_manager/domain/models/attachment.dart';
-import 'package:p1ng_todo_manager/domain/services/attachment_service.dart';
+import 'package:todow/data/local/task_repository_impl.dart';
+import 'package:todow/domain/models/attachment.dart';
+import 'package:todow/domain/services/attachment_service.dart';
 
 class AttachmentServiceImpl implements AttachmentService {
   AttachmentServiceImpl(this._taskRepo);

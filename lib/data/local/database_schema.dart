@@ -6,7 +6,7 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     status TEXT NOT NULL, priority TEXT NOT NULL, created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL, start_at TEXT, due_at TEXT, category TEXT,
     tags TEXT NOT NULL, reminder_plan TEXT NOT NULL, source_type TEXT NOT NULL,
-    source_id TEXT)''');
+    source_id TEXT, sort_order INTEGER NOT NULL DEFAULT 0)''');
   await db.execute('''CREATE TABLE subtasks (
     id TEXT PRIMARY KEY, task_id TEXT NOT NULL, title TEXT NOT NULL,
     is_completed INTEGER NOT NULL, sort_order INTEGER NOT NULL,
@@ -37,4 +37,10 @@ Future<void> createDatabaseSchema(Database db, int version) async {
       'CREATE INDEX idx_reminders_task ON scheduled_reminders(task_id)');
   await db.execute(
       'CREATE INDEX idx_reminders_scheduled ON scheduled_reminders(scheduled_at)');
+}
+
+Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 2) {
+    await db.execute('ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+  }
 }

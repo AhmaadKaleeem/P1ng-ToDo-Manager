@@ -1,10 +1,10 @@
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/reminders/reminder_calculator.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
-import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
-import 'package:p1ng_todo_manager/domain/services/reminder_scheduler.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/reminders/reminder_calculator.dart';
+import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/services/notification_service.dart';
+import 'package:todow/domain/services/reminder_scheduler.dart';
 
 class ReminderSchedulerImpl implements ReminderScheduler {
   ReminderSchedulerImpl(this._tasks, this._notifications);

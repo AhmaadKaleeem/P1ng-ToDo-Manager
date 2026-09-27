@@ -1,4 +1,4 @@
-import 'package:p1ng_todo_manager/domain/models/task.dart';
+import 'package:todow/domain/models/task.dart';
 
 enum NotificationAction { complete, snooze, openTask }
 

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/timetable_controller.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:provider/provider.dart';
 
 

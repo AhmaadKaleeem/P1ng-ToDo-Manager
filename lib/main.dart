@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/core/theme/app_theme.dart';
-import 'package:p1ng_todo_manager/core/routing/app_router.dart';
+import 'package:todow/bootstrap.dart';
+import 'package:todow/core/theme/app_theme.dart';
+import 'package:todow/core/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: P1ngApp()));
+  runApp(const ProviderScope(child: TodowApp()));
 }
 
-class P1ngApp extends StatefulWidget {
-  const P1ngApp({super.key});
+class TodowApp extends StatefulWidget {
+  const TodowApp({super.key});
 
   @override
-  State<P1ngApp> createState() => _P1ngAppState();
+  State<TodowApp> createState() => _TodowAppState();
 }
 
-class _P1ngAppState extends State<P1ngApp> {
+class _TodowAppState extends State<TodowApp> {
   late final Future<AppServices> _services = bootstrap();
 
   @override
@@ -49,7 +49,7 @@ class _P1ngAppState extends State<P1ngApp> {
             ChangeNotifierProvider.value(value: services.appController),
           ],
           child: MaterialApp(
-            title: 'P1ng',
+            title: 'Todow',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.dark,
             initialRoute: AppRoutes.splash,
@@ -77,7 +77,7 @@ class _StartupError extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, size: 48),
               const SizedBox(height: 16),
-              Text('P1ng could not start',
+              Text('Todow could not start',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               const Text(

@@ -12,8 +12,12 @@ class AppDatabase {
     if (_instance != null) return _instance!;
     _instance = AppDatabase._();
     _db = await databaseFactoryFfiWeb.openDatabase(
-      pathOverride ?? 'p1ng_todo_manager.db',
-      options: OpenDatabaseOptions(version: 1, onCreate: createDatabaseSchema),
+      pathOverride ?? 'todow.db',
+      options: OpenDatabaseOptions(
+        version: 2, 
+        onCreate: createDatabaseSchema,
+        onUpgrade: upgradeDatabaseSchema,
+      ),
     );
     return _instance!;
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
+import 'package:todow/core/theme/app_colors.dart';
 import 'dart:ui' show ImageFilter;
 
 class TodayScreen extends ConsumerStatefulWidget {
@@ -443,7 +443,7 @@ class _PillTab extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: isSelected ? AppColors.action : AppColors.textSecondary(0.8)),
+            Icon(icon, size: 18, color: isSelected ? AppColors.action : AppColors.textSecondary.withValues(alpha: 0.8)),
             const SizedBox(width: 8),
             Text(title, style: TextStyle(
               fontSize: 14,
@@ -832,4 +832,5 @@ class _FloatingNav extends StatelessWidget {
     );
   }
 }
+
 

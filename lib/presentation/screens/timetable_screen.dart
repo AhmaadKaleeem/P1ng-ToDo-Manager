@@ -1,24 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
-import 'package:p1ng_todo_manager/core/utils/date_format.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/models/timetable_entry.dart';
-import 'package:p1ng_todo_manager/domain/reminders/reminder_presets.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/focus_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/task_controller.dart';
-import 'package:p1ng_todo_manager/presentation/controllers/timetable_controller.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:todow/core/theme/app_colors.dart';
+import 'package:todow/core/utils/date_format.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
+import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:provider/provider.dart';
 
-import 'package:p1ng_todo_manager/presentation/app.dart';
-import 'package:p1ng_todo_manager/presentation/widgets/empty_state.dart';
+import 'package:todow/presentation/app.dart';
 
 class TimetableScreen extends StatelessWidget {
   const TimetableScreen({super.key});

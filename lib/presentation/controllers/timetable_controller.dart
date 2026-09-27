@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/timetable_entry.dart';
-import 'package:p1ng_todo_manager/domain/repositories/timetable_repository.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
+import 'package:todow/domain/repositories/timetable_repository.dart';
 import 'package:uuid/uuid.dart';
 
 class TimetableController extends ChangeNotifier {

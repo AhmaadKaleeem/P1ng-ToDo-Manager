@@ -1,4 +1,4 @@
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
+import 'package:todow/domain/models/enums.dart';
 
 class ReminderOffset {
   const ReminderOffset({

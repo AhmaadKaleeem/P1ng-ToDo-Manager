@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/services/focus_service.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/focus_session.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/services/focus_service.dart';
 
 class FocusController extends ChangeNotifier {
   FocusController(this._service) {

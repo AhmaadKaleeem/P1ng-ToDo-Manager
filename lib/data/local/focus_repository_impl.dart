@@ -1,6 +1,6 @@
-import 'package:p1ng_todo_manager/data/local/app_database.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/repositories/focus_repository.dart';
+import 'package:todow/data/local/app_database.dart';
+import 'package:todow/domain/models/focus_session.dart';
+import 'package:todow/domain/repositories/focus_repository.dart';
 import 'package:sqflite/sqflite.dart';
 
 class FocusRepositoryImpl implements FocusRepository {

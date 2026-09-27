@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:p1ng_todo_manager/domain/services/notification_service.dart';
+import 'package:todow/domain/services/notification_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController(this._notifications);

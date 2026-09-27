@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/repositories/focus_repository.dart';
-import 'package:p1ng_todo_manager/domain/services/app_blocking_service.dart';
-import 'package:p1ng_todo_manager/domain/services/focus_service.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/focus_session.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/repositories/focus_repository.dart';
+import 'package:todow/domain/services/app_blocking_service.dart';
+import 'package:todow/domain/services/focus_service.dart';
 import 'package:uuid/uuid.dart';
 
 class FocusServiceImpl implements FocusService {

@@ -1,6 +1,6 @@
 {
-    "name": "p1ng_todo_manager",
-    "short_name": "p1ng_todo_manager",
+    "name": "todow",
+    "short_name": "todow",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

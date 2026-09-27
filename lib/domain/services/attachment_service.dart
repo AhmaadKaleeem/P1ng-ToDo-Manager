@@ -1,4 +1,4 @@
-import 'package:p1ng_todo_manager/domain/models/attachment.dart';
+import 'package:todow/domain/models/attachment.dart';
 
 abstract class AttachmentService {
   Future<Attachment> attachFile(
