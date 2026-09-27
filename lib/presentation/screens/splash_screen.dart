@@ -18,6 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
   final TextEditingController _nameController = TextEditingController();
   
   bool _needsName = false;
+  bool _hasName = false;
 
   @override
   void initState() {
@@ -30,15 +31,21 @@ class _SplashScreenState extends State<SplashScreen> {
     final name = prefs.getString('username');
     final hasName = name != null && name.isNotEmpty;
     
-    await Future.delayed(const Duration(seconds: 4));
+    if (mounted) {
+      setState(() {
+        _hasName = hasName;
+        // If they don't have a name, we can show the input field early so they don't wait 10s just to type
+        if (!hasName) {
+          _needsName = true;
+        }
+      });
+    }
+    
+    await Future.delayed(const Duration(seconds: 10));
     if (!mounted) return;
 
-    if (hasName) {
+    if (_hasName) {
       Navigator.pushReplacementNamed(context, AppRoutes.home);
-    } else {
-      setState(() {
-        _needsName = true;
-      });
     }
   }
 
@@ -49,8 +56,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _proceed() async {
+    if (_hasName) {
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      return;
+    }
+    
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', name);
     if (!mounted) return;
