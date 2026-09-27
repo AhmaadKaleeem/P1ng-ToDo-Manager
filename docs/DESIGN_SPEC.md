@@ -128,6 +128,28 @@ FR-01.v2 adds three physical interaction patterns to the active task list: drag-
 11. UI: GestureDetector.onDoubleTap on row ─────────────── ← 5
 ```
 
+### FR-02 UI Task Dependency Graph
+
+This iteration builds the frontend UI components for the attachments feature, connecting the existing domain capabilities to the task editor. It introduces a dedicated attachments section with file picking, listing, deletion, and file opening functionality, along with a visual badge indicator on the home screen tasks list. The implementation strictly avoids network calls or background syncing logic, adhering to the local-only constraints.
+
+| Feature | Assertion |
+|---|---|
+| Pick File | `file_picker.pickFiles()` is called with domain allowed extensions |
+| Render List | `AttachmentsSection` renders `AttachmentRow` per file in `TaskController.getAttachments` |
+| View File | Tapping a row calls `open_filex.open(absolutePath)` |
+| Remove File | Swiping a row triggers `TaskController.removeAttachment` via Action Pane |
+| Hide on Create | `widget.task == null` hides the AttachmentsSection completely |
+| Paperclip Badge | Task row reads map from `TaskController.attachmentCounts` and shows `Icons.attach_file` + count |
+
+```
+1. AttachmentRow Widget ─────────────────────────────┐
+2. AttachmentsSection Widget ────────────────────────┐ │
+3. TaskEditorScreen (Wire AttachmentsSection) ───── ▼ ▼
+4. HomeScreen (Fetch attachmentCounts once) ─────── 3
+5. TaskRow (Render paperclip badge from counts) ── 4
+6. Widget Tests (attachment_row, attachments_section) ← 1,2
+```
+
 ---
 
 ## Component Recipes
@@ -145,6 +167,18 @@ Extracted from live code. Every value is quoted from source.
 | Title style | `fontSize:15, fontWeight:w600, color:textPrimary` | [`home_screen.dart:476`](file:///d:/Ahmad/p1ng-todo-manager/lib/presentation/screens/home_screen.dart#L476) |
 | Metadata style | `fontSize:12, fontWeight:w500, color:textSecondaryOpacity(0.7)` | [`home_screen.dart:487`](file:///d:/Ahmad/p1ng-todo-manager/lib/presentation/screens/home_screen.dart#L487) |
 | Drag handle icon | `Icons.drag_indicator, size:20` | [`home_screen.dart:506`](file:///d:/Ahmad/p1ng-todo-manager/lib/presentation/screens/home_screen.dart#L506) |
+
+### Attachment Row
+- height: 60dp
+- padding: 16 horizontal, 12 vertical
+- icon: 24px, left
+  - image/* → AppColors.attention
+  - application/pdf → AppColors.alert
+  - everything else → AppColors.textSecondary
+- filename: 15/w500/AppColors.textPrimary, single line, ellipsis
+- size label: 12/w400/AppColors.textSecondary below, format "2.4 MB"
+- right slot: 20dp wide, empty (reserved for future sync badge)
+- divider: 1px AppColors.divider above each row except the first
 
 ### Grouped Block (task list container)
 | Property | Value | Source |
@@ -171,4 +205,15 @@ Swipe actions have no prior recipe in this codebase. Defined here as the canonic
 | Icon color | `Colors.white` | Maximum contrast on colored bg |
 | Icons | `Icons.check_rounded` (complete), `Icons.delete_outline_rounded` (delete) | Already used in existing slidable actions |
 | Motion | `ScrollMotion()` | Minimal, no bounciness — matches calm vibe |
+
+
+
+## Component Recipe: Attachment Card
+Container: Solid white, rounded corners (12), border (0.05 black), padding 12.
+Layout: Row.
+Leading: Icon (doc_text for pdf, photo for image, etc.), accent color cycle.
+Title: Filename (ellipsis, maxLines 1, bodyMedium).
+Subtitle: File size formatted (e.g., '1.2 MB').
+Sync Badge: (Reserved for FR-03, use cloud_off or omit for now).
+Trailing: Delete button (CupertinoIcons.trash, color: error/red).
 

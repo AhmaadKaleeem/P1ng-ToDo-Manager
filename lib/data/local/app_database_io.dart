@@ -15,7 +15,7 @@ class AppDatabase {
         pathOverride ?? join(await getDatabasesPath(), 'todow.db');
     _db = await openDatabase(
       dbPath, 
-      version: 2, 
+      version: 3, 
       onCreate: createDatabaseSchema,
       onUpgrade: upgradeDatabaseSchema,
     );

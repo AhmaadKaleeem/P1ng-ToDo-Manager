@@ -6,7 +6,8 @@ import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
-import 'package:todow/domain/services/attachment_service.dart';
+import 'package:todow/domain/repositories/attachment_repository.dart';
+import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/models/reminder.dart';
 
 class MockTaskRepository implements TaskRepository {
@@ -69,26 +70,47 @@ class MockReminderScheduler implements ReminderScheduler {
   Future<void> snoozeReminder(ScheduledReminder reminder, Duration duration) async {}
 }
 
-class MockAttachmentService implements AttachmentService {
+class MockAttachmentRepository implements AttachmentRepository {
+  final Map<String, Attachment> _attachments = {};
+
   @override
-  Future<Attachment> attachFile(String taskId, String sourcePath, String originalName) async {
-    return Attachment(id: '1', taskId: taskId, fileName: originalName, localPath: sourcePath, mimeType: 'image/png', type: AttachmentType.image, createdAt: DateTime.now(), ocrReady: true);
+  Future<Attachment> create(Attachment a) async {
+    _attachments[a.id] = a;
+    return a;
   }
   @override
-  Future<void> deleteAttachment(Attachment attachment) async {}
-  Future<void> deleteAllForTask(String taskId) async {}
-  Future<void> openAttachment(Attachment attachment) async {}
+  Future<List<Attachment>> getByTask(String taskId) async => _attachments.values.where((a) => a.taskId == taskId).toList();
   @override
-  Future<bool> fileExists(Attachment attachment) async => true;
+  Future<Attachment?> getById(String id) async => _attachments[id];
+  @override
+  Future<void> delete(String id) async {}
+  @override
+  Future<void> deleteByTask(String taskId) async {}
+  @override
+  Future<int> countByTask(String taskId) async => 0;
+  @override
+  Future<Map<String, int>> countsByTaskIds(List<String> ids) async => {};
+}
+
+class MockFileStorage implements FileStorage {
+  @override
+  Future<String> save(String taskId, String attachmentId, String sourcePath, String filename) async => '';
+  @override
+  Future<void> delete(String taskId, String attachmentId, String filename) async {}
+  @override
+  Future<void> deleteTaskFolder(String taskId) async {}
+  @override
+  Future<String> absolutePath(String taskId, String attachmentId, String filename) async => '';
 }
 
 void main() {
   test('duplicateTask creates a copy of the task with a new ID and active status', () async {
     final mockRepo = MockTaskRepository();
     final mockScheduler = MockReminderScheduler();
-    final mockAttachments = MockAttachmentService();
+    final mockAttachments = MockAttachmentRepository();
+    final mockFileStorage = MockFileStorage();
     
-    final controller = TaskController(mockRepo, mockScheduler, mockAttachments);
+    final controller = TaskController(mockRepo, mockScheduler, mockAttachments, mockFileStorage);
     
     // Seed mock repo with original task
     final original = Task(

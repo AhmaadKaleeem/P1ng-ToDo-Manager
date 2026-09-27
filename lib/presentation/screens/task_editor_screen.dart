@@ -5,6 +5,7 @@ import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
+import 'package:todow/presentation/widgets/attachments_section.dart';
 
 const _kRoadmaps = ['Master Roadmap', 'Daily Tasks', 'Business'];
 
@@ -279,6 +280,9 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
                         ),
                       ),
 
+                      const SizedBox(height: 28),
+                      
+                      AttachmentsSection(task: widget.task),
                       const SizedBox(height: 40),
                     ],
                   ),

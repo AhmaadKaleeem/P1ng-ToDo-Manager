@@ -26,6 +26,8 @@ dependencies:
   flutter_animate: ^4.5.2
   flutter_slidable: ^4.0.3
   shared_preferences: ^2.5.3
+  open_filex: ^4.7.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

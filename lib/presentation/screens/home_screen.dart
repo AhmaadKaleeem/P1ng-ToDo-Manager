@@ -22,12 +22,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _insertingBelowId;
+  Map<String, int> _attachmentCounts = {};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskController>().loadTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final tc = context.read<TaskController>();
+      await tc.loadTasks();
+      final ids = tc.tasks.map((t) => t.id).toList();
+      final counts = await tc.attachmentCounts(ids);
+      if (mounted) {
+        setState(() {
+          _attachmentCounts = counts;
+        });
+      }
     });
   }
 
@@ -191,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     task: active[i], 
                                     controller: tc, 
                                     index: i,
+                                    attachmentCount: _attachmentCounts[active[i].id] ?? 0,
                                     isFirst: i == 0, 
                                     isLast: i == active.length - 1 && _insertingBelowId != active[i].id,
                                     onInsertRequested: () {
@@ -239,7 +249,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 for (int i = 0; i < done.length; i++)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
-                                    child: _TaskRow(task: done[i], controller: tc, index: -1, isFirst: i == 0, isLast: i == done.length - 1),
+                                    child: _TaskRow(
+                                      task: done[i], 
+                                      controller: tc, 
+                                      index: -1, 
+                                      attachmentCount: _attachmentCounts[done[i].id] ?? 0,
+                                      isFirst: i == 0, 
+                                      isLast: i == done.length - 1
+                                    ),
                                   ),
                               ],
                             )
@@ -455,8 +472,9 @@ class _TaskRow extends StatefulWidget {
   final bool isFirst;
   final bool isLast;
   final int index;
+  final int attachmentCount;
   final VoidCallback? onInsertRequested;
-  const _TaskRow({required this.task, required this.controller, required this.index, this.isFirst = false, this.isLast = false, this.onInsertRequested});
+  const _TaskRow({required this.task, required this.controller, required this.index, this.attachmentCount = 0, this.isFirst = false, this.isLast = false, this.onInsertRequested});
   @override
   State<_TaskRow> createState() => _TaskRowState();
 }
@@ -580,6 +598,14 @@ class _TaskRowState extends State<_TaskRow> {
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _getCategoryColor(widget.task.category!)),
                   ),
                 ),
+              if (widget.attachmentCount > 0) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.attach_file, size: 14, color: AppColors.textSecondary),
+                if (widget.attachmentCount > 1) ...[
+                  const SizedBox(width: 4),
+                  Text('${widget.attachmentCount}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary)),
+                ],
+              ],
               const SizedBox(width: 16),
               if (widget.index >= 0)
                 ReorderableDragStartListener(
