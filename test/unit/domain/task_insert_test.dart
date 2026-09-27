@@ -5,7 +5,7 @@ import '../presentation/controllers/task_controller_test.dart';
 void main() {
   test('insertTaskBelow inserts a new task at the correct order', () async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
     
     final taskA = await controller.createTask(title: 'Task A');
     await controller.createTask(title: 'Task C'); 
@@ -20,7 +20,7 @@ void main() {
   });
   test('insertTaskBelow with empty string throws ArgumentError', () async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
     
     final taskA = await controller.createTask(title: 'Task A');
     
@@ -32,7 +32,7 @@ void main() {
 
   test('insertTaskBelow trims whitespace from title', () async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
     
     final taskA = await controller.createTask(title: 'Task A');
     await controller.insertTaskBelow(taskA.id, '  Task B  ');
@@ -42,7 +42,7 @@ void main() {
 
   test('insertTaskBelow with whitespace-only string throws ArgumentError', () async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
     
     final taskA = await controller.createTask(title: 'Task A');
     
