@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
-import 'package:p1ng_todo_manager/bootstrap.dart';
-import 'package:p1ng_todo_manager/core/routing/app_router.dart';
+import 'package:todow/core/theme/app_colors.dart';
+import 'package:todow/bootstrap.dart';
+import 'package:todow/core/routing/app_router.dart';
 
 class SplashScreen extends StatelessWidget {
   final AppServices services;
@@ -31,7 +31,7 @@ class SplashScreen extends StatelessWidget {
                       Transform.scale(
                         scale: 1.8,
                         child: Image.asset(
-                          'assets/p1ng_logo_transparent.png', 
+                          'assets/Tofow-App-Logo-Inapp-Transparent.png', 
                           height: 100, 
                           fit: BoxFit.contain,
                         ).animate()
