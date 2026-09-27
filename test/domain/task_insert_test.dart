@@ -1,0 +1,21 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:todow/presentation/controllers/task_controller.dart';
+import '../presentation/controllers/task_controller_test.dart'; 
+
+void main() {
+  test('insertTaskBelow inserts a new task at the correct order', () async {
+    final mockRepo = MockTaskRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    
+    final taskA = await controller.createTask(title: 'Task A');
+    await controller.createTask(title: 'Task C'); 
+    
+    // Insert B below A
+    await controller.insertTaskBelow(taskA.id, 'Task B');
+    
+    final tasks = controller.activeTasks;
+    expect(tasks[0].title, 'Task A');
+    expect(tasks[1].title, 'Task B');
+    expect(tasks[2].title, 'Task C');
+  });
+}

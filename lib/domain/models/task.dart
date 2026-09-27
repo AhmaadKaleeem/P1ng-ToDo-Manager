@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:p1ng_todo_manager/domain/models/attachment.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/subtask.dart';
+import 'package:todow/domain/models/attachment.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/subtask.dart';
 
 class Task {
   const Task({
@@ -27,6 +27,7 @@ class Task {
     ),
     this.sourceType = TaskSourceType.local,
     this.sourceId,
+    this.sortOrder = 0,
   });
 
   final String id;
@@ -45,6 +46,7 @@ class Task {
   final ReminderPlan reminderPlan;
   final TaskSourceType sourceType;
   final String? sourceId;
+  final int sortOrder;
 
   bool get hasAttachments => attachments.isNotEmpty;
   bool get hasConstantReminder => reminderPlan.constantReminder;
@@ -83,6 +85,7 @@ class Task {
     ReminderPlan? reminderPlan,
     TaskSourceType? sourceType,
     String? sourceId,
+    int? sortOrder,
   }) {
     return Task(
       id: id,
@@ -101,6 +104,7 @@ class Task {
       reminderPlan: reminderPlan ?? this.reminderPlan,
       sourceType: sourceType ?? this.sourceType,
       sourceId: sourceId ?? this.sourceId,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -119,6 +123,7 @@ class Task {
         'reminder_plan': jsonEncode(reminderPlan.toJson()),
         'source_type': sourceType.name,
         'source_id': sourceId,
+        'sort_order': sortOrder,
       };
 
   factory Task.fromMap(
@@ -151,6 +156,7 @@ class Task {
       ),
       sourceType: TaskSourceType.values.byName(map['source_type']! as String),
       sourceId: map['source_id'] as String?,
+      sortOrder: map['sort_order'] as int? ?? 0,
     );
   }
 }

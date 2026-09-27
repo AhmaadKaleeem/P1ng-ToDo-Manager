@@ -1,10 +1,10 @@
-import 'package:p1ng_todo_manager/data/local/app_database.dart';
-import 'package:p1ng_todo_manager/domain/models/attachment.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/subtask.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
+import 'package:todow/data/local/app_database.dart';
+import 'package:todow/domain/models/attachment.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/subtask.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/repositories/task_repository.dart';
 
 class TaskRepositoryImpl implements TaskRepository {
   TaskRepositoryImpl(this._database);
@@ -70,6 +70,7 @@ class TaskRepositoryImpl implements TaskRepository {
     }
 
     final order = switch (sort) {
+      TaskSort.manual => 'sort_order ASC, created_at DESC',
       TaskSort.dueDateAsc => 'due_at IS NULL, due_at ASC',
       TaskSort.dueDateDesc => 'due_at IS NULL, due_at DESC',
       TaskSort.priorityDesc =>

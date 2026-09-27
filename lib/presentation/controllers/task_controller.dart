@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/subtask.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/reminders/reminder_presets.dart';
-import 'package:p1ng_todo_manager/domain/repositories/task_repository.dart';
-import 'package:p1ng_todo_manager/domain/services/attachment_service.dart';
-import 'package:p1ng_todo_manager/domain/services/reminder_scheduler.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/subtask.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/reminders/reminder_presets.dart';
+import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/services/attachment_service.dart';
+import 'package:todow/domain/services/reminder_scheduler.dart';
 import 'package:uuid/uuid.dart';
 
 class TaskController extends ChangeNotifier {
@@ -23,7 +23,7 @@ class TaskController extends ChangeNotifier {
 
   List<Task> _tasks = [];
   String _query = '';
-  TaskSort _sort = TaskSort.dueDateAsc;
+  TaskSort _sort = TaskSort.manual;
   TaskStatus? _filterStatus;
   String? _error;
   bool _loading = false;
@@ -101,18 +101,23 @@ class TaskController extends ChangeNotifier {
     String description = '',
     TaskStatus status = TaskStatus.active,
     TaskPriority priority = TaskPriority.medium,
+    int? sortOrder,
     DateTime? dueAt,
     DateTime? startAt,
     String? category,
     List<String> tags = const [],
     ReminderPlan? reminderPlan,
     List<Subtask> subtasks = const [],
+    bool skipReload = false,
   }) async {
     if (title.trim().isEmpty) {
       throw TaskValidationException('Title is required.');
     }
     final now = DateTime.now();
     final plan = reminderPlan ?? ReminderPresets.defaultPlan();
+    final int actualSortOrder = sortOrder ?? 
+        (_tasks.isEmpty ? 0 : _tasks.fold<int>(0, (max, t) => t.sortOrder > max ? t.sortOrder : max) + 1);
+        
     final task = Task(
       id: _uuid.v4(),
       title: title.trim(),
@@ -127,21 +132,22 @@ class TaskController extends ChangeNotifier {
       tags: tags,
       subtasks: subtasks,
       reminderPlan: plan,
+      sortOrder: actualSortOrder,
     );
     final saved = await _repo.create(task);
     await _scheduler.syncTaskReminders(saved);
-    await loadTasks();
+    if (!skipReload) await loadTasks();
     return saved;
   }
 
-  Future<Task> updateTask(Task task) async {
+  Future<Task> updateTask(Task task, {bool skipReload = false}) async {
     if (task.title.trim().isEmpty) {
       throw TaskValidationException('Title is required.');
     }
     final updated = task.copyWith(updatedAt: DateTime.now());
     await _repo.update(updated);
     await _scheduler.syncTaskReminders(updated);
-    await loadTasks();
+    if (!skipReload) await loadTasks();
     return updated;
   }
 
@@ -199,6 +205,45 @@ class TaskController extends ChangeNotifier {
     await updateTask(task.copyWith(status: TaskStatus.active));
   }
 
+  Future<void> duplicateTask(String id) async {
+    final task = await _repo.getById(id);
+    if (task == null) return;
+    
+    final newTaskId = _uuid.v4();
+    final now = DateTime.now();
+    
+    final clonedSubtasks = task.subtasks.map((s) => Subtask(
+      id: _uuid.v4(),
+      taskId: newTaskId,
+      title: s.title,
+      isCompleted: false,
+      sortOrder: s.sortOrder,
+    )).toList();
+
+    final clonedTask = Task(
+      id: newTaskId,
+      title: task.title,
+      description: task.description,
+      status: TaskStatus.active,
+      priority: task.priority,
+      createdAt: now,
+      updatedAt: now,
+      startAt: task.startAt,
+      dueAt: task.dueAt,
+      category: task.category,
+      tags: List.from(task.tags),
+      subtasks: clonedSubtasks,
+      attachments: const [], 
+      reminderPlan: task.reminderPlan,
+      sourceType: task.sourceType,
+      sourceId: task.sourceId,
+    );
+
+    final saved = await _repo.create(clonedTask);
+    await _scheduler.syncTaskReminders(saved);
+    await loadTasks();
+  }
+
   Future<List<ScheduledReminder>> activeReminders() =>
       _repo.getActiveReminders();
 
@@ -212,6 +257,37 @@ class TaskController extends ChangeNotifier {
     if (task == null) return;
     final att = task.attachments.where((a) => a.id == attachmentId).firstOrNull;
     if (att != null) await _attachments.deleteAttachment(att);
+    await loadTasks();
+  }
+
+  Future<void> reorderTask(int oldIndex, int newIndex) async {
+    final active = List.of(activeTasks);
+    if (oldIndex < newIndex) newIndex -= 1;
+    final task = active.removeAt(oldIndex);
+    active.insert(newIndex, task);
+    for (int i = 0; i < active.length; i++) {
+      if (active[i].sortOrder != i) {
+        await updateTask(active[i].copyWith(sortOrder: i), skipReload: true);
+      }
+    }
+    await loadTasks();
+  }
+
+  Future<void> insertTaskBelow(String taskId, String newTitle) async {
+    final active = List.of(activeTasks);
+    final index = active.indexWhere((t) => t.id == taskId);
+    if (index == -1) return;
+    
+    final newTask = await createTask(
+      title: newTitle,
+      sortOrder: index + 1,
+    );
+    
+    for (int i = index + 1; i < active.length; i++) {
+      if (active[i].id != newTask.id) {
+        await updateTask(active[i].copyWith(sortOrder: i + 1), skipReload: true);
+      }
+    }
     await loadTasks();
   }
 }
