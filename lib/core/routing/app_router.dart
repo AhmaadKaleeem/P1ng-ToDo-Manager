@@ -9,7 +9,6 @@ abstract final class AppRoutes {
 }
 
 abstract final class AppRouter {
-  /// Generates routes dynamically while injecting [AppServices] where needed.
   static Route<dynamic> generateRoute(RouteSettings settings, AppServices services) {
     switch (settings.name) {
       case AppRoutes.home:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -9,6 +10,7 @@ import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _softShadow = BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2));
 
@@ -19,6 +21,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String? _insertingBelowId;
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +58,16 @@ class _HomeScreenState extends State<HomeScreen> {
           const CornerArcDecor(corner: Alignment.topRight, scale: 1.2),
           SafeArea(
             bottom: false,
-            child: CustomScrollView(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onDoubleTap: () {
+                if (active.isNotEmpty) {
+                  setState(() => _insertingBelowId = active.last.id);
+                } else {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TaskEditorScreen()));
+                }
+              },
+              child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
@@ -63,10 +76,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Your\nProjects (3)',
-                          style: TextStyle(fontSize: 34, height: 1.1, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -1),
-                        ).animate().fadeIn().slideY(begin: 0.2),
+                        FutureBuilder<SharedPreferences>(
+                          future: SharedPreferences.getInstance(),
+                          builder: (context, snapshot) {
+                            final name = snapshot.data?.getString('username');
+                            
+                            String timeGreeting = 'Good evening';
+                            final hour = DateTime.now().hour;
+                            if (hour < 12) {
+                              timeGreeting = 'Good morning';
+                            } else if (hour < 17) {
+                              timeGreeting = 'Good afternoon';
+                            }
+                            
+                            final greeting = name != null && name.isNotEmpty ? '$timeGreeting,\n$name' : 'Your\nProjects (3)';
+                            return Text(
+                              greeting,
+                              style: const TextStyle(fontSize: 34, height: 1.1, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -1),
+                            ).animate().fadeIn().slideY(begin: 0.2);
+                          }
+                        ),
                       ],
                     ),
                   ),
@@ -138,27 +167,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [_softShadow],
-                        ),
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: active.length,
-                          onReorder: tc.reorderTask,
-                          itemBuilder: (_, i) => Padding(
-                            key: ValueKey(active[i].id),
-                            padding: EdgeInsets.zero,
-                            child: _TaskRow(task: active[i], controller: tc, isFirst: i == 0, isLast: i == active.length - 1)
-                              .animate(delay: Duration(milliseconds: 460 + i * 55))
-                              .fadeIn(duration: 280.ms)
-                              .slideY(begin: 0.12, curve: Curves.easeOutCubic),
+                      child: ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        buildDefaultDragHandles: false,
+                        itemCount: active.length,
+                        onReorder: tc.reorderTask,
+                        proxyDecorator: (child, index, animation) => Material(color: Colors.transparent, elevation: 0, child: child),
+                        itemBuilder: (_, i) => GestureDetector(
+                          key: ValueKey(active[i].id),
+                          behavior: HitTestBehavior.translucent,
+                          onDoubleTap: () {
+                            setState(() => _insertingBelowId = active[i].id);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: ReorderableDelayedDragStartListener(
+                              index: i,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _TaskRow(
+                                    task: active[i], 
+                                    controller: tc, 
+                                    index: i,
+                                    isFirst: i == 0, 
+                                    isLast: i == active.length - 1 && _insertingBelowId != active[i].id,
+                                    onInsertRequested: () {
+                                      setState(() => _insertingBelowId = active[i].id);
+                                    }
+                                  )
+                                    .animate(delay: Duration(milliseconds: 460 + i * 55))
+                                    .fadeIn(duration: 280.ms)
+                                    .slideY(begin: 0.12, curve: Curves.easeOutCubic),
+                                  if (_insertingBelowId == active[i].id)
+                                    _InlineInsertField(
+                                      aboveId: active[i].id,
+                                      controller: tc,
+                                      onDismissed: () => setState(() => _insertingBelowId = null),
+                                      isLast: i == active.length - 1,
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ).animate().fadeIn(delay: 450.ms),
+                      ),
                     ),
                   ),
 
@@ -180,18 +234,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           tilePadding: EdgeInsets.zero,
                           title: const Text('DONE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.textSecondary)),
                           children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: const [_softShadow],
-                              ),
-                              child: Column(
-                                children: [
-                                  for (int i = 0; i < done.length; i++)
-                                    _TaskRow(task: done[i], controller: tc, isFirst: i == 0, isLast: i == done.length - 1),
-                                ],
-                              ),
+                            Column(
+                              children: [
+                                for (int i = 0; i < done.length; i++)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _TaskRow(task: done[i], controller: tc, index: -1, isFirst: i == 0, isLast: i == done.length - 1),
+                                  ),
+                              ],
                             )
                           ],
                         ),
@@ -203,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        ),
 
           Positioned(
             bottom: 32,
@@ -403,7 +454,9 @@ class _TaskRow extends StatefulWidget {
   final TaskController controller;
   final bool isFirst;
   final bool isLast;
-  const _TaskRow({required this.task, required this.controller, this.isFirst = false, this.isLast = false});
+  final int index;
+  final VoidCallback? onInsertRequested;
+  const _TaskRow({required this.task, required this.controller, required this.index, this.isFirst = false, this.isLast = false, this.onInsertRequested});
   @override
   State<_TaskRow> createState() => _TaskRowState();
 }
@@ -414,13 +467,17 @@ class _TaskRowState extends State<_TaskRow> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: () {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => TaskEditorScreen(task: widget.task)));
       },
-      onTapCancel: () => setState(() => _pressed = false),
-      onDoubleTap: () => widget.controller.insertTaskBelow(widget.task.id, 'New Task'),
+      onDoubleTap: () {
+        setState(() => _pressed = false);
+        widget.onInsertRequested?.call();
+      },
       child: AnimatedScale(
         scale: _pressed ? 0.975 : 1.0,
         duration: const Duration(milliseconds: 120),
@@ -428,43 +485,61 @@ class _TaskRowState extends State<_TaskRow> {
         child: Slidable(
         key: ValueKey(widget.task.id),
         endActionPane: ActionPane(
-          motion: const ScrollMotion(),
+          motion: const DrawerMotion(),
+          extentRatio: widget.task.isCompleted ? 0.48 : 0.24,
           children: [
-            SlidableAction(
-              onPressed: (_) => widget.task.isCompleted ? widget.controller.reopenTask(widget.task.id) : widget.controller.completeTask(widget.task.id),
-              backgroundColor: widget.task.isCompleted ? AppColors.surfaceElevated : AppColors.action,
-              foregroundColor: widget.task.isCompleted ? AppColors.textPrimary : Colors.white,
-              icon: widget.task.isCompleted ? Icons.undo : Icons.check_rounded,
-            ),
-            SlidableAction(
-              onPressed: (_) => widget.controller.deleteTask(widget.task.id),
-              backgroundColor: AppColors.alert,
-              foregroundColor: Colors.white,
-              icon: Icons.delete_outline_rounded,
-            ),
+            if (widget.task.isCompleted) ...[
+              CustomSlidableAction(
+                onPressed: (_) => widget.controller.reopenTask(widget.task.id),
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.only(left: 8, right: 4),
+                child: _SwipeActionTile(
+                  icon: Icons.replay_rounded,
+                  label: 'Undo',
+                  color: AppColors.action,
+                ),
+              ),
+              CustomSlidableAction(
+                onPressed: (_) => widget.controller.deleteTask(widget.task.id),
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.only(left: 4, right: 8),
+                child: _SwipeActionTile(
+                  icon: Icons.delete_rounded,
+                  label: 'Delete',
+                  color: AppColors.alert,
+                ),
+              ),
+            ] else
+              CustomSlidableAction(
+                onPressed: (_) => widget.controller.completeTask(widget.task.id),
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _SwipeActionTile(
+                  icon: Icons.check_rounded,
+                  label: 'Done',
+                  color: const Color(0xFF22C55E),
+                ),
+              ),
           ],
         ),
         child: Container(
-          height: 68,
+          height: 72,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: widget.isLast ? BorderSide.none : const BorderSide(color: AppColors.divider, width: 1),
-            ),
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [_softShadow],
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => widget.task.isCompleted ? widget.controller.reopenTask(widget.task.id) : widget.controller.completeTask(widget.task.id),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.task.isCompleted ? AppColors.attention : Colors.transparent,
-                    border: Border.all(color: widget.task.isCompleted ? AppColors.attention : AppColors.textSecondaryOpacity(0.6), width: 1.5),
-                  ),
-                  child: widget.task.isCompleted ? const Icon(Icons.check_rounded, size: 14, color: Colors.white) : null,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 6, height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.task.isCompleted
+                      ? AppColors.textSecondaryOpacity(0.2)
+                      : AppColors.action,
                 ),
               ),
               const SizedBox(width: 14),
@@ -503,7 +578,19 @@ class _TaskRowState extends State<_TaskRow> {
                   ),
                 ),
               const SizedBox(width: 16),
-              Icon(Icons.drag_indicator, size: 20, color: AppColors.textSecondaryOpacity(0.5)),
+              if (widget.index >= 0)
+                ReorderableDragStartListener(
+                  index: widget.index,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      child: Icon(Icons.drag_indicator, size: 20, color: AppColors.textSecondaryOpacity(0.5)),
+                    ),
+                  ),
+                )
+              else
+                Icon(Icons.drag_indicator, size: 20, color: AppColors.textSecondaryOpacity(0.3)),
             ],
           ),
         ),
@@ -630,4 +717,146 @@ class _NavIcon extends StatelessWidget {
   const _NavIcon(this.icon, this.selected);
   @override
   Widget build(BuildContext context) => Icon(icon, size: 24, color: selected ? AppColors.textPrimary : AppColors.textSecondary);
+}
+
+// ─────────────────────────── SWIPE ACTION TILE ───────────────────────────────
+
+class _SwipeActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _SwipeActionTile({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 22),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.3)),
+      ],
+    ),
+  );
+}
+
+// ────────────────────────────── INLINE INSERT ──────────────────────────────────
+
+class _InlineInsertField extends StatefulWidget {
+  final String aboveId;
+  final TaskController controller;
+  final VoidCallback onDismissed;
+  final bool isLast;
+
+  const _InlineInsertField({
+    required this.aboveId,
+    required this.controller,
+    required this.onDismissed,
+    this.isLast = false,
+  });
+
+  @override
+  State<_InlineInsertField> createState() => _InlineInsertFieldState();
+}
+
+class _InlineInsertFieldState extends State<_InlineInsertField> {
+  final _ctrl = TextEditingController();
+  final _focus = FocusNode();
+  bool _submitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocusChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChanged);
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (!_focus.hasFocus) {
+      _submit();
+    }
+  }
+
+  void _submit() {
+    if (_submitted) return;
+    _submitted = true;
+    final text = _ctrl.text.trim();
+    if (text.isNotEmpty) {
+      widget.controller.insertTaskBelow(widget.aboveId, text);
+    }
+    widget.onDismissed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _submitted = true;
+          _ctrl.clear();
+          widget.onDismissed();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Container(
+        height: 72,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.action.withValues(alpha: 0.6), width: 1.5),
+          boxShadow: const [_softShadow],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 22, height: 22,
+              margin: const EdgeInsets.only(right: 14),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.divider, width: 2),
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _ctrl,
+                focusNode: _focus,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'New task...',
+                  hintStyle: TextStyle(fontSize: 15, color: AppColors.textSecondaryOpacity(0.6)),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.check_rounded, color: AppColors.action, size: 20),
+              onPressed: _submit,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

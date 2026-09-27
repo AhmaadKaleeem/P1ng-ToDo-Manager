@@ -6,6 +6,7 @@ import 'package:todow/bootstrap.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/presentation/app.dart';
 import 'package:todow/presentation/screens/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.services, super.key});
@@ -108,7 +109,13 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
                     child: Icon(Icons.person, color: AppColors.background, size: 30),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Student', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  FutureBuilder<SharedPreferences>(
+                    future: SharedPreferences.getInstance(),
+                    builder: (context, snapshot) {
+                      final name = snapshot.data?.getString('username') ?? 'Student';
+                      return Text('Welcome, $name', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary));
+                    }
+                  ),
                   const SizedBox(height: 40),
                   _DrawerItem(icon: Icons.today_outlined, label: 'Today', selected: _index == 0, onTap: () { setState(() => _index = 0); toggleDrawer(); }),
                   _DrawerItem(icon: Icons.checklist_outlined, label: 'Tasks', selected: _index == 1, onTap: () { setState(() => _index = 1); toggleDrawer(); }),
