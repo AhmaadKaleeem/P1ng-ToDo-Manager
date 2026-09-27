@@ -486,14 +486,14 @@ class _TaskRowState extends State<_TaskRow> {
         key: ValueKey(widget.task.id),
         endActionPane: ActionPane(
           motion: const DrawerMotion(),
-          extentRatio: widget.task.isCompleted ? 0.48 : 0.24,
+          extentRatio: 0.48,
           children: [
             if (widget.task.isCompleted) ...[
               CustomSlidableAction(
                 onPressed: (_) => widget.controller.reopenTask(widget.task.id),
                 backgroundColor: Colors.transparent,
                 padding: const EdgeInsets.only(left: 8, right: 4),
-                child: _SwipeActionTile(
+                child: const _SwipeActionTile(
                   icon: Icons.replay_rounded,
                   label: 'Undo',
                   color: AppColors.action,
@@ -503,23 +503,34 @@ class _TaskRowState extends State<_TaskRow> {
                 onPressed: (_) => widget.controller.deleteTask(widget.task.id),
                 backgroundColor: Colors.transparent,
                 padding: const EdgeInsets.only(left: 4, right: 8),
-                child: _SwipeActionTile(
+                child: const _SwipeActionTile(
                   icon: Icons.delete_rounded,
                   label: 'Delete',
                   color: AppColors.alert,
                 ),
               ),
-            ] else
+            ] else ...[
               CustomSlidableAction(
                 onPressed: (_) => widget.controller.completeTask(widget.task.id),
                 backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: _SwipeActionTile(
+                padding: const EdgeInsets.only(left: 8, right: 4),
+                child: const _SwipeActionTile(
                   icon: Icons.check_rounded,
                   label: 'Done',
-                  color: const Color(0xFF22C55E),
+                  color: Color(0xFF22C55E),
                 ),
               ),
+              CustomSlidableAction(
+                onPressed: (_) => widget.controller.deleteTask(widget.task.id),
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.only(left: 4, right: 8),
+                child: const _SwipeActionTile(
+                  icon: Icons.delete_rounded,
+                  label: 'Delete',
+                  color: AppColors.alert,
+                ),
+              ),
+            ],
           ],
         ),
         child: Container(
@@ -728,19 +739,23 @@ class _SwipeActionTile extends StatelessWidget {
   const _SwipeActionTile({required this.icon, required this.label, required this.color});
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.3)),
-      ],
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 64,
+      height: 56,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.1)),
+        ],
+      ),
     ),
   );
 }
