@@ -129,7 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                      child: _EmptyTasksHint(onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TaskEditorScreen()))),
+                      child: _EmptyTasksHint(onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TaskEditorScreen())))
+                        .animate().fadeIn(delay: 350.ms, duration: 400.ms).scale(begin: const Offset(0.92, 0.92), curve: Curves.easeOutBack),
                     ),
                   ),
 
@@ -151,7 +152,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemBuilder: (_, i) => Padding(
                             key: ValueKey(active[i].id),
                             padding: EdgeInsets.zero,
-                            child: _TaskRow(task: active[i], controller: tc, isFirst: i == 0, isLast: i == active.length - 1),
+                            child: _TaskRow(task: active[i], controller: tc, isFirst: i == 0, isLast: i == active.length - 1)
+                              .animate(delay: Duration(milliseconds: 460 + i * 55))
+                              .fadeIn(duration: 280.ms)
+                              .slideY(begin: 0.12, curve: Curves.easeOutCubic),
                           ),
                         ),
                       ).animate().fadeIn(delay: 450.ms),
@@ -161,7 +165,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: _QuickAdd(controller: tc).animate().fadeIn(delay: 700.ms),
+                    child: _QuickAdd(controller: tc)
+                      .animate().fadeIn(delay: 750.ms).slideY(begin: 0.3, curve: Curves.easeOutBack),
                   ),
                 ),
 
@@ -393,31 +398,46 @@ class _SecondaryCard extends StatelessWidget {
 
 // ──────────────────────────────── TASK ROW ───────────────────────────────────
 
-class _TaskRow extends StatelessWidget {
+class _TaskRow extends StatefulWidget {
   final Task task;
   final TaskController controller;
   final bool isFirst;
   final bool isLast;
   const _TaskRow({required this.task, required this.controller, this.isFirst = false, this.isLast = false});
+  @override
+  State<_TaskRow> createState() => _TaskRowState();
+}
+
+class _TaskRowState extends State<_TaskRow> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TaskEditorScreen(task: task))),
-      onDoubleTap: () => controller.insertTaskBelow(task.id, 'New Task'),
-      child: Slidable(
-        key: ValueKey(task.id),
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => TaskEditorScreen(task: widget.task)));
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      onDoubleTap: () => widget.controller.insertTaskBelow(widget.task.id, 'New Task'),
+      child: AnimatedScale(
+        scale: _pressed ? 0.975 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Slidable(
+        key: ValueKey(widget.task.id),
         endActionPane: ActionPane(
           motion: const ScrollMotion(),
           children: [
             SlidableAction(
-              onPressed: (_) => task.isCompleted ? controller.reopenTask(task.id) : controller.completeTask(task.id),
-              backgroundColor: task.isCompleted ? AppColors.surfaceElevated : AppColors.action,
-              foregroundColor: task.isCompleted ? AppColors.textPrimary : Colors.white,
-              icon: task.isCompleted ? Icons.undo : Icons.check_rounded,
+              onPressed: (_) => widget.task.isCompleted ? widget.controller.reopenTask(widget.task.id) : widget.controller.completeTask(widget.task.id),
+              backgroundColor: widget.task.isCompleted ? AppColors.surfaceElevated : AppColors.action,
+              foregroundColor: widget.task.isCompleted ? AppColors.textPrimary : Colors.white,
+              icon: widget.task.isCompleted ? Icons.undo : Icons.check_rounded,
             ),
             SlidableAction(
-              onPressed: (_) => controller.deleteTask(task.id),
+              onPressed: (_) => widget.controller.deleteTask(widget.task.id),
               backgroundColor: AppColors.alert,
               foregroundColor: Colors.white,
               icon: Icons.delete_outline_rounded,
@@ -429,22 +449,22 @@ class _TaskRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             border: Border(
-              bottom: isLast ? BorderSide.none : const BorderSide(color: AppColors.divider, width: 1),
+              bottom: widget.isLast ? BorderSide.none : const BorderSide(color: AppColors.divider, width: 1),
             ),
           ),
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => task.isCompleted ? controller.reopenTask(task.id) : controller.completeTask(task.id),
+                onTap: () => widget.task.isCompleted ? widget.controller.reopenTask(widget.task.id) : widget.controller.completeTask(widget.task.id),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   width: 22, height: 22,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: task.isCompleted ? AppColors.attention : Colors.transparent,
-                    border: Border.all(color: task.isCompleted ? AppColors.attention : AppColors.textSecondaryOpacity(0.6), width: 1.5),
+                    color: widget.task.isCompleted ? AppColors.attention : Colors.transparent,
+                    border: Border.all(color: widget.task.isCompleted ? AppColors.attention : AppColors.textSecondaryOpacity(0.6), width: 1.5),
                   ),
-                  child: task.isCompleted ? const Icon(Icons.check_rounded, size: 14, color: Colors.white) : null,
+                  child: widget.task.isCompleted ? const Icon(Icons.check_rounded, size: 14, color: Colors.white) : null,
                 ),
               ),
               const SizedBox(width: 14),
@@ -453,33 +473,33 @@ class _TaskRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(task.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
+                    Text(widget.task.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600,
-                      color: task.isCompleted ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary,
-                      decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                      color: widget.task.isCompleted ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary,
+                      decoration: widget.task.isCompleted ? TextDecoration.lineThrough : null,
                       decorationColor: AppColors.textSecondaryOpacity(0.3),
                     )),
-                    if (task.dueAt != null)
+                    if (widget.task.dueAt != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          _formatTime(task.dueAt!),
+                          _formatTime(widget.task.dueAt!),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondaryOpacity(0.7)),
                         ),
                       ),
                   ],
                 ),
               ),
-              if (task.category != null && task.category!.isNotEmpty)
+              if (widget.task.category != null && widget.task.category!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(task.category!).withValues(alpha: 0.15),
+                    color: _getCategoryColor(widget.task.category!).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    task.category!,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _getCategoryColor(task.category!)),
+                    widget.task.category!,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _getCategoryColor(widget.task.category!)),
                   ),
                 ),
               const SizedBox(width: 16),
@@ -488,7 +508,8 @@ class _TaskRow extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Color _getCategoryColor(String category) {

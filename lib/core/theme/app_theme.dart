@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:p1ng_todo_manager/core/theme/app_colors.dart';
+import 'package:todow/core/theme/app_colors.dart';
 
 abstract final class AppTheme {
   static ThemeData get dark {
@@ -32,13 +32,13 @@ abstract final class AppTheme {
           return TextStyle(
             fontSize: 11,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? AppColors.action : AppColors.textSecondary(),
+            color: selected ? AppColors.action : AppColors.textSecondary,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? AppColors.action : AppColors.textSecondary(),
+            color: selected ? AppColors.action : AppColors.textSecondary,
             size: 22,
           );
         }),
@@ -55,8 +55,8 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
-        hintStyle: TextStyle(color: AppColors.textSecondary()),
-        labelStyle: TextStyle(color: AppColors.textSecondary()),
+        hintStyle: TextStyle(color: AppColors.textSecondary),
+        labelStyle: TextStyle(color: AppColors.textSecondary),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceElevated,
@@ -106,3 +106,4 @@ abstract final class AppTheme {
     );
   }
 }
+
