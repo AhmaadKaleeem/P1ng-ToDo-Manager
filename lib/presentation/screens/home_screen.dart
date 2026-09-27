@@ -484,53 +484,45 @@ class _TaskRowState extends State<_TaskRow> {
         curve: Curves.easeOut,
         child: Slidable(
         key: ValueKey(widget.task.id),
-        endActionPane: ActionPane(
+        startActionPane: ActionPane(
           motion: const DrawerMotion(),
-          extentRatio: 0.48,
+          extentRatio: 0.22,
           children: [
-            if (widget.task.isCompleted) ...[
+            if (widget.task.isCompleted)
               CustomSlidableAction(
                 onPressed: (_) => widget.controller.reopenTask(widget.task.id),
                 backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.only(left: 8, right: 4),
+                padding: EdgeInsets.zero,
                 child: const _SwipeActionTile(
                   icon: Icons.replay_rounded,
-                  label: 'Undo',
                   color: AppColors.action,
                 ),
-              ),
-              CustomSlidableAction(
-                onPressed: (_) => widget.controller.deleteTask(widget.task.id),
-                backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.only(left: 4, right: 8),
-                child: const _SwipeActionTile(
-                  icon: Icons.delete_rounded,
-                  label: 'Delete',
-                  color: AppColors.alert,
-                ),
-              ),
-            ] else ...[
+              )
+            else
               CustomSlidableAction(
                 onPressed: (_) => widget.controller.completeTask(widget.task.id),
                 backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.only(left: 8, right: 4),
+                padding: EdgeInsets.zero,
                 child: const _SwipeActionTile(
                   icon: Icons.check_rounded,
-                  label: 'Done',
-                  color: Color(0xFF22C55E),
+                  color: AppColors.attention,
                 ),
               ),
-              CustomSlidableAction(
-                onPressed: (_) => widget.controller.deleteTask(widget.task.id),
-                backgroundColor: Colors.transparent,
-                padding: const EdgeInsets.only(left: 4, right: 8),
-                child: const _SwipeActionTile(
-                  icon: Icons.delete_rounded,
-                  label: 'Delete',
-                  color: AppColors.alert,
-                ),
+          ],
+        ),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.22,
+          children: [
+            CustomSlidableAction(
+              onPressed: (_) => widget.controller.deleteTask(widget.task.id),
+              backgroundColor: Colors.transparent,
+              padding: EdgeInsets.zero,
+              child: const _SwipeActionTile(
+                icon: Icons.delete_outline_rounded,
+                color: AppColors.alert,
               ),
-            ],
+            ),
           ],
         ),
         child: Container(
@@ -734,27 +726,27 @@ class _NavIcon extends StatelessWidget {
 
 class _SwipeActionTile extends StatelessWidget {
   final IconData icon;
-  final String label;
   final Color color;
-  const _SwipeActionTile({required this.icon, required this.label, required this.color});
+  const _SwipeActionTile({required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) => Center(
     child: Container(
-      width: 64,
-      height: 56,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.1)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
         ],
+      ),
+      child: Center(
+        child: Icon(icon, color: Colors.white, size: 26),
       ),
     ),
   );
