@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/focus_session.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/focus_session.dart';
 
 void main() {
   test('keeps elapsed focus time when a paused session ends', () {

@@ -1,4 +1,4 @@
-package com.example.p1ng_todo_manager
+package com.example.todow
 
 import io.flutter.embedding.android.FlutterActivity
 

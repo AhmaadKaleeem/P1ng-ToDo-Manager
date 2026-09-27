@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/task.dart';
 
 void main() {
   test('creates a local task without starter counter state', () {

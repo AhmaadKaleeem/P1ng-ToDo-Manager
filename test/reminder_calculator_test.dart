@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p1ng_todo_manager/domain/models/enums.dart';
-import 'package:p1ng_todo_manager/domain/models/reminder.dart';
-import 'package:p1ng_todo_manager/domain/models/task.dart';
-import 'package:p1ng_todo_manager/domain/reminders/reminder_calculator.dart';
+import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/reminders/reminder_calculator.dart';
 
 void main() {
   test('calculates an assignment reminder relative to the due time', () {
@@ -23,7 +23,10 @@ void main() {
       ),
     );
 
-    final schedule = ReminderCalculator.buildSchedule(task);
+    final schedule = ReminderCalculator.buildSchedule(
+      task,
+      now: DateTime(2026, 9, 20),
+    );
 
     expect(schedule, hasLength(1));
     expect(schedule.single.scheduledAt, DateTime(2026, 9, 23, 23, 59));
