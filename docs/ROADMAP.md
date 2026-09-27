@@ -1,6 +1,6 @@
 # Future Roadmap
 
-I plan to integrate P1ng Todo Manager with tools students already use. I want to keep the local-first design while adding these connections over time.
+I plan to integrate Todow Todo Manager with tools students already use. I want to keep the local-first design while adding these connections over time.
 
 Phase 1 focuses on Google accounts. The app will handle multiple accounts and turn Gmail messages into tasks. It will also sync with Google Calendar so events and tasks live in the same place.
 
