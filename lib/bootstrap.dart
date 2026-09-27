@@ -2,16 +2,19 @@ import 'package:todow/data/local/app_database.dart';
 import 'package:todow/data/local/focus_repository_impl.dart';
 import 'package:todow/data/local/task_repository_impl.dart';
 import 'package:todow/data/local/timetable_repository_impl.dart';
+import 'package:todow/data/local/attachment_repository_impl.dart';
 import 'package:todow/data/services/app_blocking_service_stub.dart';
-import 'package:todow/data/services/attachment_service_impl.dart';
+import 'package:todow/data/services/file_storage_impl.dart';
+import 'package:todow/data/services/orphan_cleanup.dart';
 import 'package:todow/data/services/focus_service_impl.dart';
 import 'package:todow/data/services/notification_service_impl.dart';
 import 'package:todow/data/services/reminder_scheduler_impl.dart';
 import 'package:todow/domain/repositories/focus_repository.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
 import 'package:todow/domain/repositories/timetable_repository.dart';
+import 'package:todow/domain/repositories/attachment_repository.dart';
 import 'package:todow/domain/services/app_blocking_service.dart';
-import 'package:todow/domain/services/attachment_service.dart';
+import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/services/focus_service.dart';
 import 'package:todow/domain/services/notification_service.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
@@ -27,7 +30,8 @@ class AppServices {
     required this.focusRepository,
     required this.notificationService,
     required this.reminderScheduler,
-    required this.attachmentService,
+    required this.attachmentRepository,
+    required this.fileStorage,
     required this.focusService,
     required this.appBlockingService,
     required this.taskController,
@@ -41,7 +45,8 @@ class AppServices {
   final FocusRepository focusRepository;
   final NotificationService notificationService;
   final ReminderScheduler reminderScheduler;
-  final AttachmentService attachmentService;
+  final AttachmentRepository attachmentRepository;
+  final FileStorage fileStorage;
   final FocusService focusService;
   final AppBlockingService appBlockingService;
   final TaskController taskController;
@@ -55,6 +60,8 @@ Future<AppServices> bootstrap() async {
   final taskRepo = TaskRepositoryImpl(db);
   final timetableRepo = TimetableRepositoryImpl(db);
   final focusRepo = FocusRepositoryImpl(db);
+  final attachmentRepo = AttachmentRepositoryImpl(db.db);
+  final fileStorage = FileStorageImpl();
   final appBlocking = AppBlockingServiceStub();
 
   late TaskController taskController;
@@ -88,14 +95,16 @@ Future<AppServices> bootstrap() async {
   await notifications.requestPermissions();
 
   reminderScheduler = ReminderSchedulerImpl(taskRepo, notifications);
-  final attachments = AttachmentServiceImpl(taskRepo);
   final focusService = FocusServiceImpl(focusRepo, appBlocking);
   await focusService.restoreActiveSession();
+  
+  await cleanupOrphanedAttachments(taskRepo);
 
   taskController = TaskController(
     taskRepo,
     reminderScheduler,
-    attachments,
+    attachmentRepo,
+    fileStorage,
   );
   final timetableController = TimetableController(timetableRepo);
   final focusController = FocusController(focusService);
@@ -110,7 +119,8 @@ Future<AppServices> bootstrap() async {
     focusRepository: focusRepo,
     notificationService: notifications,
     reminderScheduler: reminderScheduler,
-    attachmentService: attachments,
+    attachmentRepository: attachmentRepo,
+    fileStorage: fileStorage,
     focusService: focusService,
     appBlockingService: appBlocking,
     taskController: taskController,

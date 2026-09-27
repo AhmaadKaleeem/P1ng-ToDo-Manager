@@ -4,21 +4,30 @@ import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/models/subtask.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/reminders/reminder_presets.dart';
+import 'dart:io';
+import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
-import 'package:todow/domain/services/attachment_service.dart';
+import 'package:todow/domain/repositories/attachment_repository.dart';
+import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
+import 'package:todow/domain/attachment_limits.dart';
+import 'package:todow/data/services/attachment_hasher.dart';
 import 'package:uuid/uuid.dart';
+
+import 'package:open_filex/open_filex.dart' as open_filex;
 
 class TaskController extends ChangeNotifier {
   TaskController(
     this._repo,
     this._scheduler,
-    this._attachments,
+    this._attachmentRepo,
+    this._fileStorage,
   );
 
   final TaskRepository _repo;
   final ReminderScheduler _scheduler;
-  final AttachmentService _attachments;
+  final AttachmentRepository _attachmentRepo;
+  final FileStorage _fileStorage;
   static const _uuid = Uuid();
 
   List<Task> _tasks = [];
@@ -190,6 +199,8 @@ class TaskController extends ChangeNotifier {
   Future<void> deleteTask(String id) async {
     await _scheduler.cancelTaskReminders(id);
     await _repo.delete(id);
+    await _attachmentRepo.deleteByTask(id);
+    await _fileStorage.deleteTaskFolder(id);
     await loadTasks();
   }
 
@@ -247,17 +258,53 @@ class TaskController extends ChangeNotifier {
   Future<List<ScheduledReminder>> activeReminders() =>
       _repo.getActiveReminders();
 
-  Future<void> attachFile(String taskId, String path, String name) async {
-    await _attachments.attachFile(taskId, path, name);
+  Future<List<Attachment>> getAttachments(String taskId) =>
+      _attachmentRepo.getByTask(taskId);
+
+  Future<Map<String, int>> attachmentCounts(List<String> taskIds) =>
+      _attachmentRepo.countsByTaskIds(taskIds);
+
+  Future<Attachment> attachFile(
+      String taskId, String sourcePath, String filename, String mimeType) async {
+    final file = File(sourcePath);
+    final sizeBytes = await file.length();
+    
+    validateAttachment(filename, sizeBytes);
+
+    final attachmentId = _uuid.v4();
+    final contentHash = await hashFile(sourcePath);
+    
+    await _fileStorage.save(taskId, attachmentId, sourcePath, filename);
+
+    final attachment = Attachment(
+      id: attachmentId,
+      taskId: taskId,
+      filename: filename,
+      mimeType: mimeType,
+      sizeBytes: sizeBytes,
+      contentHash: contentHash,
+      syncState: AttachmentSyncState.localOnly,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await _attachmentRepo.create(attachment);
+    await loadTasks();
+    return attachment;
+  }
+
+  Future<void> removeAttachment(String attachmentId) async {
+    final att = await _attachmentRepo.getById(attachmentId);
+    if (att == null) return;
+    
+    await _fileStorage.delete(att.taskId, att.id, att.filename);
+    await _attachmentRepo.delete(attachmentId);
     await loadTasks();
   }
 
-  Future<void> removeAttachment(String taskId, String attachmentId) async {
-    final task = await _repo.getById(taskId);
-    if (task == null) return;
-    final att = task.attachments.where((a) => a.id == attachmentId).firstOrNull;
-    if (att != null) await _attachments.deleteAttachment(att);
-    await loadTasks();
+  Future<void> openAttachment(Attachment att) async {
+    final path = await _fileStorage.absolutePath(att.taskId, att.id, att.filename);
+    await open_filex.OpenFilex.open(path);
   }
 
   Future<void> reorderTask(int oldIndex, int newIndex) async {
@@ -305,9 +352,4 @@ class TaskValidationException implements Exception {
   String toString() => message;
 }
 
-extension _FirstOrNull<E> on Iterable<E> {
-  E? get firstOrNull {
-    final it = iterator;
-    return it.moveNext() ? it.current : null;
-  }
-}
+
