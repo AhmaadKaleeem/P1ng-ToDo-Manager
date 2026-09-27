@@ -274,12 +274,17 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> insertTaskBelow(String taskId, String newTitle) async {
+    final trimmedTitle = newTitle.trim();
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError('Title cannot be empty');
+    }
+    
     final active = List.of(activeTasks);
     final index = active.indexWhere((t) => t.id == taskId);
     if (index == -1) return;
     
     final newTask = await createTask(
-      title: newTitle,
+      title: trimmedTitle,
       sortOrder: index + 1,
     );
     

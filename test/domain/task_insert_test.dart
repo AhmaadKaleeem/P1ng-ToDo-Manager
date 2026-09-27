@@ -18,4 +18,37 @@ void main() {
     expect(tasks[1].title, 'Task B');
     expect(tasks[2].title, 'Task C');
   });
+  test('insertTaskBelow with empty string throws ArgumentError', () async {
+    final mockRepo = MockTaskRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    
+    final taskA = await controller.createTask(title: 'Task A');
+    
+    expect(
+      () => controller.insertTaskBelow(taskA.id, ''),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('insertTaskBelow trims whitespace from title', () async {
+    final mockRepo = MockTaskRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    
+    final taskA = await controller.createTask(title: 'Task A');
+    await controller.insertTaskBelow(taskA.id, '  Task B  ');
+    
+    expect(controller.activeTasks[1].title, 'Task B');
+  });
+
+  test('insertTaskBelow with whitespace-only string throws ArgumentError', () async {
+    final mockRepo = MockTaskRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentService());
+    
+    final taskA = await controller.createTask(title: 'Task A');
+    
+    expect(
+      () => controller.insertTaskBelow(taskA.id, '   '),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
 }
