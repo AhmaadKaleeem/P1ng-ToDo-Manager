@@ -104,6 +104,7 @@ Future<AppServices> bootstrap() async {
   await notifications.initialize();
 
   reminderScheduler = ReminderSchedulerImpl(taskRepo, notifications);
+  await reminderScheduler.recoverPendingReminders();
   final focusService = FocusServiceImpl(focusRepo, appBlocking);
   await focusService.restoreActiveSession();
   

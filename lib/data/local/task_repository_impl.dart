@@ -16,7 +16,15 @@ class TaskRepositoryImpl implements TaskRepository {
   Future<Task> create(Task task) async {
     await _database.db.insert('tasks', task.toMap());
     for (final sub in task.subtasks) {
-      await _database.db.insert('subtasks', sub.toMap());
+      final s = sub.taskId == task.id ? sub : Subtask(
+        id: sub.id,
+        taskId: task.id,
+        title: sub.title,
+        description: sub.description,
+        isCompleted: sub.isCompleted,
+        sortOrder: sub.sortOrder,
+      );
+      await _database.db.insert('subtasks', s.toMap());
     }
     for (final att in task.attachments) {
       await _database.db.insert('attachments', att.toMap());
@@ -109,7 +117,15 @@ class TaskRepositoryImpl implements TaskRepository {
     await _database.db
         .delete('subtasks', where: 'task_id = ?', whereArgs: [task.id]);
     for (final sub in task.subtasks) {
-      await _database.db.insert('subtasks', sub.toMap());
+      final s = sub.taskId == task.id ? sub : Subtask(
+        id: sub.id,
+        taskId: task.id,
+        title: sub.title,
+        description: sub.description,
+        isCompleted: sub.isCompleted,
+        sortOrder: sub.sortOrder,
+      );
+      await _database.db.insert('subtasks', s.toMap());
     }
     return task;
   }

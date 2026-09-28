@@ -45,12 +45,15 @@ class ReminderPlan {
     required this.offsets,
     required this.constantReminder,
     this.customOffsets = const [],
+    this.dailyReminderMinutes,
   });
 
   final ReminderPreset preset;
   final List<ReminderOffset> offsets;
   final List<ReminderOffset> customOffsets;
   final bool constantReminder;
+  /// Minutes since midnight for daily repeating reminder (null = off).
+  final int? dailyReminderMinutes;
 
   List<ReminderOffset> get allOffsets => [...offsets, ...customOffsets];
 
@@ -59,12 +62,15 @@ class ReminderPlan {
     List<ReminderOffset>? offsets,
     List<ReminderOffset>? customOffsets,
     bool? constantReminder,
+    int? dailyReminderMinutes,
+    bool clearDailyReminder = false,
   }) {
     return ReminderPlan(
       preset: preset ?? this.preset,
       offsets: offsets ?? this.offsets,
       customOffsets: customOffsets ?? this.customOffsets,
       constantReminder: constantReminder ?? this.constantReminder,
+      dailyReminderMinutes: clearDailyReminder ? null : (dailyReminderMinutes ?? this.dailyReminderMinutes),
     );
   }
 
@@ -73,6 +79,7 @@ class ReminderPlan {
         'offsets': offsets.map((o) => o.toJson()).toList(),
         'customOffsets': customOffsets.map((o) => o.toJson()).toList(),
         'constantReminder': constantReminder,
+        'dailyReminderMinutes': dailyReminderMinutes,
       };
 
   factory ReminderPlan.fromJson(Map<String, Object?> json) => ReminderPlan(
@@ -86,6 +93,7 @@ class ReminderPlan {
                 ReminderOffset.fromJson(Map<String, Object?>.from(e as Map)))
             .toList(),
         constantReminder: json['constantReminder'] as bool? ?? false,
+        dailyReminderMinutes: json['dailyReminderMinutes'] as int?,
       );
 }
 

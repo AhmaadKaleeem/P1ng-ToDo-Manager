@@ -71,6 +71,8 @@ class MockFileStorage implements FileStorage {
 class MockReminderScheduler implements ReminderScheduler {
   @override
   Future<void> cancelTaskReminders(String taskId) async {}
+  @override
+  Future<void> recoverPendingReminders() async {}
   
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

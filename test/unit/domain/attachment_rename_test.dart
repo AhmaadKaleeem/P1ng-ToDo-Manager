@@ -58,6 +58,8 @@ class MockReminderScheduler implements ReminderScheduler {
   Future<void> markReminderHandled(String id) async {}
   @override
   Future<void> rescheduleConstantReminder(Task task) async {}
+  @override
+  Future<void> recoverPendingReminders() async {}
 }
 
 void main() {

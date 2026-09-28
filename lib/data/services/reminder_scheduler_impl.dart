@@ -135,6 +135,38 @@ class ReminderSchedulerImpl implements ReminderScheduler {
       notificationId: constant!.notificationId!,
     );
   }
+
+  @override
+  Future<void> recoverPendingReminders() async {
+    final activeReminders = await _tasks.getActiveReminders();
+    final now = DateTime.now();
+
+    for (final reminder in activeReminders) {
+      if (reminder.notificationId == null) continue;
+      final task = await _tasks.getById(reminder.taskId);
+      if (task == null || task.isCompleted || task.isArchived) continue;
+
+      if (reminder.scheduledAt.isBefore(now)) {
+        // Missed reminder, fire immediately
+        await _notifications.scheduleTaskReminder(
+          task: task,
+          scheduledAt: now.add(const Duration(seconds: 5)),
+          notificationId: reminder.notificationId!,
+          isConstant: reminder.kind == ReminderKind.constant,
+          label: reminder.label,
+        );
+      } else {
+        // Future reminder, reschedule safely
+        await _notifications.scheduleTaskReminder(
+          task: task,
+          scheduledAt: reminder.scheduledAt,
+          notificationId: reminder.notificationId!,
+          isConstant: reminder.kind == ReminderKind.constant,
+          label: reminder.label,
+        );
+      }
+    }
+  }
 }
 
 extension _FirstOrNull<E> on Iterable<E> {

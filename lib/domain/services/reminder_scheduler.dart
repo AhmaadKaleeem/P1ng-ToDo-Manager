@@ -7,4 +7,5 @@ abstract class ReminderScheduler {
   Future<void> snoozeReminder(ScheduledReminder reminder, Duration duration);
   Future<void> markReminderHandled(String reminderId);
   Future<void> rescheduleConstantReminder(Task task);
+  Future<void> recoverPendingReminders();
 }

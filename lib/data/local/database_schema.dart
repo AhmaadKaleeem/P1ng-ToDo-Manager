@@ -9,6 +9,7 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     source_id TEXT, sort_order INTEGER NOT NULL DEFAULT 0)''');
   await db.execute('''CREATE TABLE subtasks (
     id TEXT PRIMARY KEY, task_id TEXT NOT NULL, title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
     is_completed INTEGER NOT NULL, sort_order INTEGER NOT NULL,
     FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE)''');
   await db.execute('''CREATE TABLE attachments (
@@ -71,5 +72,8 @@ Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) 
       FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE)''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_attachments_remote_id ON attachments(remote_id)');
+  }
+  if (oldVersion < 4) {
+    await db.execute('ALTER TABLE subtasks ADD COLUMN description TEXT NOT NULL DEFAULT \'\'');
   }
 }

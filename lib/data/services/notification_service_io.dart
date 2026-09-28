@@ -118,8 +118,25 @@ class NotificationServiceImpl implements NotificationService {
               UILocalNotificationDateInterpretation.absoluteTime,
         );
       } catch (e) {
-        // Fallback or ignore if exact alarms are not permitted on Android 12+
-        print('Warning: Failed to schedule exact alarm: $e');
+        if (e.toString().contains('exact_alarms_not_permitted')) {
+          try {
+            await _plugin.zonedSchedule(
+              notificationId,
+              title,
+              isConstant ? '$body\nActive until completed' : body,
+              tz.TZDateTime.from(scheduledAt, tz.local),
+              details,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              payload: task.id,
+              uiLocalNotificationDateInterpretation:
+                  UILocalNotificationDateInterpretation.absoluteTime,
+            );
+          } catch (e2) {
+            print('Warning: Failed to schedule inexact fallback alarm: $e2');
+          }
+        } else {
+          print('Warning: Failed to schedule exact alarm: $e');
+        }
       }
     }
     return notificationId;

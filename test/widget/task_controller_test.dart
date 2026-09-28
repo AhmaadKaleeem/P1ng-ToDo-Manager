@@ -67,6 +67,8 @@ class MockReminderScheduler implements ReminderScheduler {
   Future<void> rescheduleConstantReminder(Task task) async {}
   @override
   Future<void> snoozeReminder(ScheduledReminder reminder, Duration duration) async {}
+  @override
+  Future<void> recoverPendingReminders() async {}
 }
 
 class MockAttachmentRepository implements AttachmentRepository {
