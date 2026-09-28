@@ -2,6 +2,14 @@
 Todow is a productivity based mobile application for students that brings your schedule and tasks into one place to help students stay organized.
 Todow solves the common student problem of juggling assignments and deadlines across too many platforms. Missing a due date happens too easily, which can cause a chain reaction of stress and falling behind.
 
+<p align="center">
+  <img src="screenshots/dashboard.png" width="320" alt="Todow dashboard screen" />
+  <br />
+  &#8595;
+  <br />
+  <img src="screenshots/create-task.png" width="320" alt="Todow task editor screen" />
+</p>
+
 ## Features
 
 ### Completed
@@ -46,11 +54,3 @@ flutter analyze
 - [Design spec](docs/DESIGN_SPEC.md)
 - [User flows](docs/FLOWS.md)
 - [Roadmap](docs/ROADMAP.md)
-
-## Screenshots
-
-The screenshots below show the current app build.
-
-| Dashboard | Create task |
-| --- | --- |
-| ![Todow dashboard](screenshots/dashboard.png) | ![Create task screen](screenshots/create-task.png) |
