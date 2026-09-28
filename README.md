@@ -1,6 +1,6 @@
 # Todow
 
-Todow is a mobile app for students to manage tasks and schedules.
+Todow is a Flutter-based mobile application for students.
 
 ## Features
 
