@@ -6,7 +6,7 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     status TEXT NOT NULL, priority TEXT NOT NULL, created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL, start_at TEXT, due_at TEXT, category TEXT,
     tags TEXT NOT NULL, reminder_plan TEXT NOT NULL, source_type TEXT NOT NULL,
-    source_id TEXT, sort_order INTEGER NOT NULL DEFAULT 0)''');
+    source_id TEXT, sort_order INTEGER NOT NULL DEFAULT 0, topic_id TEXT)''');
   await db.execute('''CREATE TABLE subtasks (
     id TEXT PRIMARY KEY, task_id TEXT NOT NULL, title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -44,10 +44,29 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     allowed_apps TEXT NOT NULL DEFAULT '')''');
   await db.execute('CREATE INDEX idx_tasks_status ON tasks(status)');
   await db.execute('CREATE INDEX idx_tasks_due_at ON tasks(due_at)');
+  await db.execute('CREATE INDEX idx_tasks_topic_id ON tasks(topic_id)');
   await db.execute(
       'CREATE INDEX idx_reminders_task ON scheduled_reminders(task_id)');
   await db.execute(
       'CREATE INDEX idx_reminders_scheduled ON scheduled_reminders(scheduled_at)');
+  await db.execute('''CREATE TABLE roadmaps (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    color_index INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL)''');
+  await db.execute('''CREATE TABLE topics (
+    id TEXT PRIMARY KEY,
+    roadmap_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY(roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE)''');
+  await db.execute('CREATE INDEX idx_topics_roadmap_id ON topics(roadmap_id)');
 }
 
 Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) async {
@@ -75,5 +94,27 @@ Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) 
   }
   if (oldVersion < 4) {
     await db.execute('ALTER TABLE subtasks ADD COLUMN description TEXT NOT NULL DEFAULT \'\'');
+  }
+  if (oldVersion < 5) {
+    await db.execute('ALTER TABLE tasks ADD COLUMN topic_id TEXT');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_topic_id ON tasks(topic_id)');
+    await db.execute('''CREATE TABLE IF NOT EXISTS roadmaps (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      color_index INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL)''');
+    await db.execute('''CREATE TABLE IF NOT EXISTS topics (
+      id TEXT PRIMARY KEY,
+      roadmap_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY(roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE)''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_topics_roadmap_id ON topics(roadmap_id)');
   }
 }

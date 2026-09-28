@@ -136,6 +136,7 @@ class TaskController extends ChangeNotifier {
     DateTime? dueAt,
     DateTime? startAt,
     String? category,
+    String? topicId,
     List<String> tags = const [],
     ReminderPlan? reminderPlan,
     List<Subtask> subtasks = const [],
@@ -160,6 +161,7 @@ class TaskController extends ChangeNotifier {
       startAt: startAt,
       dueAt: dueAt,
       category: category,
+      topicId: topicId,
       tags: tags,
       subtasks: subtasks,
       reminderPlan: plan,
@@ -404,5 +406,4 @@ class TaskValidationException implements Exception {
   @override
   String toString() => message;
 }
-
 

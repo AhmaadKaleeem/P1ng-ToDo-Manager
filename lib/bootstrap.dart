@@ -26,6 +26,8 @@ import 'package:todow/presentation/controllers/app_controller.dart';
 import 'package:todow/presentation/controllers/focus_controller.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/controllers/timetable_controller.dart';
+import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:todow/data/local/roadmap_repository_impl.dart';
 
 class AppServices {
   AppServices({
@@ -42,6 +44,7 @@ class AppServices {
     required this.timetableController,
     required this.focusController,
     required this.appController,
+    required this.roadmapController,
   });
 
   final TaskRepository taskRepository;
@@ -57,6 +60,7 @@ class AppServices {
   final TimetableController timetableController;
   final FocusController focusController;
   final AppController appController;
+  final RoadmapController roadmapController;
 }
 
 Future<AppServices> bootstrap() async {
@@ -123,6 +127,18 @@ Future<AppServices> bootstrap() async {
   await taskController.loadTasks();
   await timetableController.load();
 
+  final roadmapRepo = RoadmapRepositoryImpl(db);
+  final topicRepo = TopicRepositoryImpl(db);
+  final roadmapTaskRepo = RoadmapTaskRepositoryImpl(db);
+  final roadmapImportRepo = RoadmapImportRepositoryImpl(db);
+  final roadmapController = RoadmapController(
+    roadmapRepo: roadmapRepo,
+    topicRepo: topicRepo,
+    taskRepo: roadmapTaskRepo,
+    importRepo: roadmapImportRepo,
+  );
+  await roadmapController.load();
+
   return AppServices(
     taskRepository: taskRepo,
     timetableRepository: timetableRepo,
@@ -137,6 +153,7 @@ Future<AppServices> bootstrap() async {
     timetableController: timetableController,
     focusController: focusController,
     appController: appController,
+    roadmapController: roadmapController,
   );
 }
 
@@ -171,9 +188,9 @@ Future<void> migrateAttachmentPaths(
     if (oldExists && !newExists) {
       oldFile.renameSync(newPath);
     } else if (oldExists && newExists) {
-      print('Warning: Both old and new path exist for attachment ${att.id}');
+      debugPrint('Both old and new attachment paths exist for ${att.id}');
     } else if (!oldExists && !newExists) {
-      print('Warning: Orphaned attachment ${att.id} (no file on disk)');
+      debugPrint('Orphaned attachment ${att.id} has no file on disk');
     }
   }
 }

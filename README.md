@@ -9,6 +9,7 @@ Todow solves the common student problem of juggling assignments and deadlines ac
 - **Reminders & Alerts** Set multiple custom relative/absolute reminders per task, use intelligent presets (Normal, Assignment, Critical), or set a daily recurring reminder for a task. For high-stakes deadlines, flip on the Constant Reminder to relentlessly ping you until you actually finish the task.
 - **Attachments** Attach local images, PDFs, and files.
 - **Dashboard & Task Creation** Review your day from the dashboard and create tasks with their details in one focused form.
+- **Roadmaps** Build learning plans from connected, progress-tracked Topics. Add and complete Topic tasks, filter them by time, and import or export Roadmaps as CSV or Excel files.
 
 ### In Progress
 - **Today View** Aggregates overdue, today's, upcoming, active reminders, timetable entries, and active focus sessions.
@@ -16,7 +17,6 @@ Todow solves the common student problem of juggling assignments and deadlines ac
 ### Future Roadmap
 - **Focus Mode** Task-linked sessions, timer, pause/resume/end, presets, and basic distraction controls.
 - **Timetable** Manual entry, CSV import, and OCR image import.
-- **Roadmap** Goals, milestones, and priorities with CSV import/export.
 - **Google Accounts** Multiple accounts, Gmail to tasks, and Google Calendar sync.
 - **Academic Tools** Import Google Classroom assignments, attach Google Drive files, and pull timetable data.
 - **Sync & Backup** Sync across devices, automatic backups, and offline changes supported.

@@ -116,6 +116,22 @@ class MockFileStorage implements FileStorage {
 }
 
 void main() {
+  test('createTask persists its optional topic assignment', () async {
+    final controller = TaskController(
+      MockTaskRepository(),
+      MockReminderScheduler(),
+      MockAttachmentRepository(),
+      MockFileStorage(),
+    );
+
+    final task = await controller.createTask(
+      title: 'Read linked material',
+      topicId: 'topic-1',
+    );
+
+    expect(task.topicId, 'topic-1');
+  });
+
   test('duplicateTask creates a copy of the task with a new ID and active status', () async {
     final mockRepo = MockTaskRepository();
     final mockScheduler = MockReminderScheduler();

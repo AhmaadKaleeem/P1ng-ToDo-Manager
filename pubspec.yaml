@@ -29,6 +29,7 @@ dependencies:
   open_filex: ^4.7.0
   crypto: ^3.0.7
   image: ^4.10.1
+  archive: ^4.3.0
 
 dev_dependencies:
   flutter_test:

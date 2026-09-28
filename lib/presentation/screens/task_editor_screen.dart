@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/subtask.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/reminders/reminder_presets.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/controllers/roadmap_controller.dart';
 import 'package:todow/presentation/widgets/attachments_section.dart';
 import 'package:todow/presentation/widgets/reminders_section.dart';
 import 'package:todow/presentation/widgets/subtasks_section.dart';
@@ -36,7 +38,8 @@ class _PriorityMeta {
 
 class TaskEditorScreen extends StatefulWidget {
   final Task? task;
-  const TaskEditorScreen({super.key, this.task});
+  final String? topicId;
+  const TaskEditorScreen({super.key, this.task, this.topicId});
   @override
   State<TaskEditorScreen> createState() => _TaskEditorScreenState();
 }
@@ -51,6 +54,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
   late final List<String> _roadmaps;
   late String _selectedRoadmap;
   Task? _workingTask;
+  Topic? _roadmapTopic;
+  Roadmap? _roadmap;
   late List<Subtask> _subtasks;
   late ReminderPlan _reminderPlan;
   bool _canPop = false;
@@ -89,6 +94,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+    _loadRoadmapContext();
 
     // Pre-expand sections if editing
     if (_workingTask != null) {
@@ -97,6 +103,24 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       _remindersExpanded = true;
       _subtasksExpanded  = _subtasks.isNotEmpty;
       _notesExpanded     = (_workingTask?.description ?? '').isNotEmpty;
+    }
+  }
+
+  bool get _isRoadmapTask => widget.topicId != null || _workingTask?.topicId != null;
+
+  Future<void> _loadRoadmapContext() async {
+    final topicId = widget.topicId ?? _workingTask?.topicId;
+    if (topicId == null) {
+      return;
+    }
+    final controller = context.read<RoadmapController>();
+    final topic = await controller.getTopic(topicId);
+    final roadmap = topic == null ? null : await controller.getRoadmap(topic.roadmapId);
+    if (mounted) {
+      setState(() {
+        _roadmapTopic = topic;
+        _roadmap = roadmap;
+      });
     }
   }
 
@@ -174,7 +198,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     final ttl = _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim();
     final task = await tc.createTask(
       title: ttl, description: _notes.text.trim(), priority: _priority,
-      dueAt: _dueAt, category: _selectedRoadmap,
+      dueAt: _dueAt, category: _isRoadmapTask ? null : _selectedRoadmap,
+      topicId: widget.topicId ?? _workingTask?.topicId,
       subtasks: _subtasks, reminderPlan: _reminderPlan,
     );
     setState(() { _workingTask = task; if (_title.text.trim().isEmpty) _title.text = 'Untitled'; });
@@ -187,13 +212,15 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       if (_workingTask == null) {
         tc.createTask(
           title: _title.text.trim(), description: _notes.text.trim(), priority: _priority,
-          dueAt: _dueAt, category: _selectedRoadmap,
+          dueAt: _dueAt, category: _isRoadmapTask ? null : _selectedRoadmap,
+          topicId: widget.topicId,
           subtasks: _subtasks, reminderPlan: _reminderPlan,
         );
       } else {
         tc.updateTask(_workingTask!.copyWith(
           title: _title.text.trim(), description: _notes.text.trim(), priority: _priority,
-          dueAt: _dueAt, clearDueAt: _dueAt == null, category: _selectedRoadmap,
+          dueAt: _dueAt, clearDueAt: _dueAt == null, category: _isRoadmapTask ? null : _selectedRoadmap,
+          topicId: widget.topicId,
           subtasks: _subtasks, reminderPlan: _reminderPlan,
         ));
       }
@@ -268,7 +295,10 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
               _CurvedHeader(
                 isNew: isNew,
                 dueAt: _dueAt,
-                category: _selectedRoadmap,
+                contextLabel: _isRoadmapTask
+                    ? '${_roadmap?.title ?? 'Roadmap'} / ${_roadmapTopic?.title ?? 'Topic'}'
+                    : _selectedRoadmap,
+                isRoadmapTask: _isRoadmapTask,
                 onClose: _save,
               ),
 
@@ -332,6 +362,15 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                       ),
                     ),
 
+                    if (_isRoadmapTask)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        child: _RoadmapTaskContext(
+                          roadmap: _roadmap?.title ?? 'Roadmap task',
+                          topic: _roadmapTopic?.title ?? 'Loading Topic…',
+                        ),
+                      ),
+
                     const SizedBox(height: 28),
 
                     // ── Quick-access control strip ───────────────────────
@@ -341,6 +380,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                       project: _selectedRoadmap,
                       remindersOn: _reminderPlan.allOffsets.isNotEmpty || _reminderPlan.constantReminder,
                       subtaskCount: _subtasks.length,
+                      showProject: !_isRoadmapTask,
                       schedExpanded: _schedExpanded,
                       priorityExpanded: _priorityExpanded,
                       projectExpanded: _projectExpanded,
@@ -382,7 +422,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                     ),
 
                     // ── Project panel ────────────────────────────────────
-                    _AnimatedSection(
+                    if (!_isRoadmapTask)
+                      _AnimatedSection(
                       visible: _projectExpanded,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -491,17 +532,58 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
 
 // ── Curved header panel ───────────────────────────────────────────────────────
 
+class _RoadmapTaskContext extends StatelessWidget {
+  const _RoadmapTaskContext({required this.roadmap, required this.topic});
+
+  final String roadmap;
+  final String topic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Roadmap context, $roadmap, $topic. This task stays in this Topic.',
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.action.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.action.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.route_outlined, size: 20, color: AppColors.action),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(roadmap, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(topic, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.action),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CurvedHeader extends StatelessWidget {
   const _CurvedHeader({
     required this.isNew,
     required this.dueAt,
-    required this.category,
+    required this.contextLabel,
+    required this.isRoadmapTask,
     required this.onClose,
   });
 
   final bool isNew;
   final DateTime? dueAt;
-  final String category;
+  final String contextLabel;
+  final bool isRoadmapTask;
   final VoidCallback onClose;
 
   @override
@@ -543,17 +625,14 @@ class _CurvedHeader extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  // Category dot + label
-                  Container(
-                    width: 8, height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.attention,
-                      shape: BoxShape.circle,
-                    ),
+                  Icon(
+                    isRoadmapTask ? Icons.lock_outline_rounded : Icons.circle,
+                    color: isRoadmapTask ? AppColors.action : AppColors.attention,
+                    size: isRoadmapTask ? 16 : 8,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    category,
+                    contextLabel,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -597,6 +676,7 @@ class _ControlStrip extends StatelessWidget {
     required this.project,
     required this.remindersOn,
     required this.subtaskCount,
+    required this.showProject,
     required this.schedExpanded,
     required this.priorityExpanded,
     required this.projectExpanded,
@@ -614,6 +694,7 @@ class _ControlStrip extends StatelessWidget {
   final String project;
   final bool remindersOn;
   final int subtaskCount;
+  final bool showProject;
   final bool schedExpanded, priorityExpanded, projectExpanded, remindersExpanded, subtasksExpanded;
   final VoidCallback onSchedTap, onPriorityTap, onProjectTap, onRemindersTap, onSubtasksTap;
 
@@ -640,13 +721,13 @@ class _ControlStrip extends StatelessWidget {
             activeColor: meta.color == const Color(0x00000000) ? AppColors.action : meta.color,
             onTap: onPriorityTap,
           ),
-          // Project chip
-          _StripChip(
-            label: 'Category - $project',
-            active: projectExpanded,
-            activeColor: AppColors.decorNavy,
-            onTap: onProjectTap,
-          ),
+          if (showProject)
+            _StripChip(
+              label: 'Category - $project',
+              active: projectExpanded,
+              activeColor: AppColors.decorNavy,
+              onTap: onProjectTap,
+            ),
           // Reminders chip
           _StripChip(
             label: remindersOn ? 'Reminders - On' : 'Reminders',

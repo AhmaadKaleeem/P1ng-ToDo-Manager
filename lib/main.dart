@@ -47,6 +47,7 @@ class _TodowAppState extends State<TodowApp> {
             ChangeNotifierProvider.value(value: services.focusController),
             ChangeNotifierProvider.value(value: services.timetableController),
             ChangeNotifierProvider.value(value: services.appController),
+            ChangeNotifierProvider.value(value: services.roadmapController),
           ],
           child: MaterialApp(
             title: 'Todow',

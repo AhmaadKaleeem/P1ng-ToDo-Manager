@@ -5,10 +5,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/domain/models/roadmap.dart';
+import 'package:todow/presentation/controllers/roadmap_controller.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/controllers/app_controller.dart';
-import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
+import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -169,40 +169,32 @@ class _HomeScreenState extends State<HomeScreen> {
     final allCompleted = applyQuery(tc.tasks, SearchQuery(text: tc.query, filter: tc.filter.copyWith(status: TaskStatusFilter.completed), sort: tc.sort));
     final done = allCompleted;
 
-    final Map<String, List<Task>> grouped = {};
+    final roadmapCount = context.watch<RoadmapController>().roadmaps.length;
+    final grouped = <String, List<Task>>{};
     for (final task in visibleTasks) {
-      final cat = (task.category != null && task.category!.isNotEmpty) ? task.category! : 'Inbox';
-      grouped.putIfAbsent(cat, () => []).add(task);
+      final category = task.category?.trim();
+      grouped.putIfAbsent(
+        category == null || category.isEmpty ? 'Inbox' : category,
+        () => [],
+      ).add(task);
     }
-
-    final roadmaps = grouped.entries.map((e) {
-      final title = e.key;
-      final total = e.value.length;
-      final completed = e.value.where((t) => t.isCompleted).length;
-      return Roadmap(
-        id: title,
-        title: title,
-        description: '',
-        completedTasks: completed,
-        totalTasks: total, // allows 0/0 to display naturally
-        gradient: const [Colors.transparent, Colors.transparent],
-      );
-    }).toList();
-
-    roadmaps.sort((a, b) => b.totalTasks.compareTo(a.totalTasks));
-
-    // Pad with defaults if fewer than 3 to keep the three tiles prominent
-    // In the future, this can be pulled from user settings to select their fav 3 tiles
-    final defaults = ['Master Roadmap', 'Daily Tasks', 'Personal Notes'];
-    for (final def in defaults) {
-      if (roadmaps.length >= 3) break;
-      if (!roadmaps.any((r) => r.title == def)) {
-        roadmaps.add(Roadmap(id: def, title: def, description: '', completedTasks: 0, totalTasks: 0, gradient: const [Colors.transparent, Colors.transparent]));
+    final categories = grouped.entries
+        .map(
+          (entry) => _CategorySummary(
+            title: entry.key,
+            completedTasks: entry.value.where((task) => task.isCompleted).length,
+            totalTasks: entry.value.length,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => b.totalTasks.compareTo(a.totalTasks));
+    for (final title in ['Inbox', 'Study', 'Personal']) {
+      if (categories.length >= 2) break;
+      if (!categories.any((category) => category.title == title)) {
+        categories.add(_CategorySummary(title: title));
       }
     }
-
-    final primary = roadmaps.first;
-    final secondaries = roadmaps.skip(1).toList();
+    final featuredCategories = categories.take(2).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -232,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
                         return (_username != null && _username!.isNotEmpty)
                             ? '$greeting,\n$_username'
-                            : 'Your\nProjects (${roadmaps.length})';
+                            : 'Your\nProjects ($roadmapCount)';
                       }(),
                       style: const TextStyle(fontSize: 34, height: 1.1, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -1),
                     ).animate().fadeIn().slideY(begin: 0.2),
@@ -244,7 +236,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: _HeroCard(roadmap: primary).animate().fadeIn(delay: 150.ms).slideY(begin: 0.08),
+                    child: _HeroCard(
+                      roadmapCount: roadmapCount,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RoadmapListScreen()),
+                      ),
+                    ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.08),
                   ),
                 ),
 
@@ -257,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
-                      itemCount: secondaries.length,
+                      itemCount: featuredCategories.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
                       itemBuilder: (_, i) {
                       const secondaryGradients = [
@@ -266,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           LinearGradient(colors: [AppColors.attention, AppColors.decorCoral], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         ];
                         return _SecondaryCard(
-                          roadmap: secondaries[i],
+                          category: featuredCategories[i],
                           gradient: secondaryGradients[i % secondaryGradients.length],
                         ).animate().fadeIn(delay: Duration(milliseconds: 250 + i * 80)).slideX(begin: 0.06, curve: Curves.easeOutExpo);
                       },
@@ -582,13 +579,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 }
 
 // ────────────────────────────────── HERO CARD ────────────────────────────────
 
 class _HeroCard extends StatefulWidget {
-  final Roadmap roadmap;
-  const _HeroCard({required this.roadmap});
+  final int roadmapCount;
+  final VoidCallback onTap;
+  const _HeroCard({required this.roadmapCount, required this.onTap});
   @override
   State<_HeroCard> createState() => _HeroCardState();
 }
@@ -598,21 +597,18 @@ class _HeroCardState extends State<_HeroCard> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.roadmap.completedTasks / (widget.roadmap.totalTasks == 0 ? 1 : widget.roadmap.totalTasks);
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => RoadmapDetailScreen(roadmap: widget.roadmap)));
+        widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
         scale: _pressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutExpo,
-        child: Hero(
-          tag: 'roadmap_${widget.roadmap.id}',
-          child: Material(
+        child: Material(
             type: MaterialType.transparency,
             child: Container(
               height: 120,
@@ -635,7 +631,7 @@ class _HeroCardState extends State<_HeroCard> {
                     children: [
                       Expanded(
                         child: Text(
-                          widget.roadmap.title, 
+                          'Roadmaps',
                           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.5),
                         ),
                       ),
@@ -651,23 +647,12 @@ class _HeroCardState extends State<_HeroCard> {
                   ),
                   const Spacer(),
                   Text(
-                    '${widget.roadmap.completedTasks}/${widget.roadmap.totalTasks} tasks', 
+                    '${widget.roadmapCount} ${widget.roadmapCount == 1 ? 'roadmap' : 'roadmaps'}',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      minHeight: 4,
-                    ),
                   ),
                 ],
               ),
             ),
-          ),
         ),
       ),
     );
@@ -677,18 +662,16 @@ class _HeroCardState extends State<_HeroCard> {
 // ─────────────────────────────── SECONDARY CARD ──────────────────────────────
 
 class _SecondaryCard extends StatelessWidget {
-  final Roadmap roadmap;
+  final _CategorySummary category;
   final Gradient gradient;
-  const _SecondaryCard({required this.roadmap, required this.gradient});
+  const _SecondaryCard({required this.category, required this.gradient});
 
   @override
   Widget build(BuildContext context) {
-    final progress = roadmap.completedTasks / (roadmap.totalTasks == 0 ? 1 : roadmap.totalTasks);
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RoadmapDetailScreen(roadmap: roadmap))),
-      child: Hero(
-        tag: 'roadmap_${roadmap.id}',
-        child: Material(
+    final progress = category.totalTasks == 0
+        ? 0.0
+        : category.completedTasks / category.totalTasks;
+    return Material(
           type: MaterialType.transparency,
           child: Container(
             width: 160,
@@ -705,13 +688,16 @@ class _SecondaryCard extends StatelessWidget {
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text('Roadmap', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)),
+                      Text('Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)),
                     ],
                   ),
                   const Spacer(),
-                  Text(roadmap.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white, height: 1.1, letterSpacing: -0.5)),
+                  Text(category.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white, height: 1.1, letterSpacing: -0.5)),
                   const SizedBox(height: 8),
-                  Text('${roadmap.completedTasks}/${roadmap.totalTasks} tasks', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white70)),
+                  Text(
+                    '${category.completedTasks}/${category.totalTasks} tasks',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white70),
+                  ),
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
@@ -726,10 +712,20 @@ class _SecondaryCard extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
     );
   }
+}
+
+class _CategorySummary {
+  const _CategorySummary({
+    required this.title,
+    this.completedTasks = 0,
+    this.totalTasks = 0,
+  });
+
+  final String title;
+  final int completedTasks;
+  final int totalTasks;
 }
 
 // ──────────────────────────────── TASK ROW ───────────────────────────────────

@@ -57,12 +57,12 @@ Task-linked sessions, timer, pause/resume/end, presets, basic distraction contro
 Manual entry, CSV import, OCR image import.
 Flow: Upload/Extract → Draft → Review/Edit → Confirm → Persist.
 
-### FR-12 & FR-13 Roadmap
-Goals, milestones, priorities. Supports CSV import/export with fixed schema.
+### FR-12 & FR-13 Roadmaps
+Roadmaps turn long-term work into a clear route through ordered Topics. Large, alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, or add a task directly to a stage. Time filters retain the Topic name, keeping scheduled work connected to the larger plan. Topic status is controlled directly, while task progress is calculated from completed work. Create a Roadmap by hand or import or export it as CSV or Excel. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Removing a Topic or Roadmap leaves its tasks safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
 
 ## CSV Specification
 **Timetable CSV Columns**: `course,instructor,day,start_time,end_time,room`
-**Roadmap CSV Columns**: `roadmap_id,title,description,milestone,due_date,priority,status,reminder`
+**Roadmap CSV and Excel Columns**: `roadmap_title,roadmap_description,topic_title,topic_description,topic_order,topic_status,task_title,task_description,due_date,due_time,priority,task_status,reminder`
 
 ## Non-Functional Requirements
 - **NFR-01 Offline**: Core works without internet.
@@ -75,4 +75,4 @@ Goals, milestones, priorities. Supports CSV import/export with fixed schema.
 - Multiple reminders calculate timestamps correctly. Completing task cancels pending. Snoozing/Constant Reminder persist state.
 - Focus sessions persist state.
 - Timetable CSV/OCR produces editable draft. Not persisted before confirmation.
-- Roadmap CSV import/export validates fixed schema.
+- Roadmaps, topics, and task assignments remain available after restart.

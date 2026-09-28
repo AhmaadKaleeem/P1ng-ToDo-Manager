@@ -6,6 +6,7 @@ import 'package:todow/bootstrap.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/presentation/app.dart';
 import 'package:todow/presentation/screens/home_screen.dart';
+import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppShell extends StatefulWidget {
@@ -78,6 +79,7 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
       const TasksScreen(),
       const FocusScreen(),
       const TimetableScreen(),
+      const RoadmapListScreen(),
     ];
 
     return Scaffold(
@@ -121,6 +123,7 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
                   _DrawerItem(icon: Icons.checklist_outlined, label: 'Tasks', selected: _index == 1, onTap: () { setState(() => _index = 1); toggleDrawer(); }),
                   _DrawerItem(icon: Icons.timer_outlined, label: 'Focus', selected: _index == 2, onTap: () { setState(() => _index = 2); toggleDrawer(); }),
                   _DrawerItem(icon: Icons.calendar_month_outlined, label: 'Timetable', selected: _index == 3, onTap: () { setState(() => _index = 3); toggleDrawer(); }),
+                  _DrawerItem(icon: Icons.route_outlined, label: 'Roadmaps', selected: _index == 4, onTap: () { setState(() => _index = 4); toggleDrawer(); }),
                   const Spacer(),
                   const Text('Good\nConsistency', style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 12),
