@@ -6,11 +6,11 @@ Todow solves the common student problem of juggling assignments and deadlines ac
 
 ### Completed
 - **Task Management** Create, edit, complete, reopen, delete, archive. Includes title, description, priority, start/due dates, tags, and subtasks. Search, filter, and sort. Quick duplicate. Clone recurring tasks. Drag to reorder, swipe to act, and double tap to insert.
+- **Reminders & Alerts** Set multiple custom relative/absolute reminders per task, use intelligent presets (Normal, Assignment, Critical), or set a daily recurring reminder for a task. For high-stakes deadlines, flip on the Constant Reminder to relentlessly ping you until you actually finish the task.
 - **Attachments** Attach local images, PDFs, and files.
 
 ### In Progress
-- **Reminders & Presets** Multiple reminders per task (absolute or relative). Snooze, reschedule, and cancel on complete. Presets for NORMAL, ASSIGNMENT, and CRITICAL.
-- **Constant Reminder** Continues reminding according to repeat policy until completed, snoozed, or stopped.
+- **Today View** Aggregates overdue, today's, upcoming, active reminders, timetable entries, and active focus sessions.
 
 ### Future Roadmap
 - **Focus Mode** Task-linked sessions, timer, pause/resume/end, presets, and basic distraction controls.
