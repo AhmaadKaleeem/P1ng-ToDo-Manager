@@ -102,7 +102,6 @@ Future<AppServices> bootstrap() async {
   );
 
   await notifications.initialize();
-  await notifications.requestPermissions();
 
   reminderScheduler = ReminderSchedulerImpl(taskRepo, notifications);
   final focusService = FocusServiceImpl(focusRepo, appBlocking);

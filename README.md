@@ -5,13 +5,10 @@ Todow is a mobile app for students to manage tasks and schedules.
 ## Features
 
 ### Completed
-- Task management (drag to reorder, swipe to complete or delete).
-- Search, sort, and filter tasks.
-- Roadmap cards to track projects.
-
+- Task management
+- Roadmap management
 ### Ongoing
-- File attachments (PDFs, images).
-- Custom reminders.
+- File attachments (PDFs, images) inside tasks.
 
 ### Upcoming
 - Google Calendar and Google Classroom sync.

@@ -7,6 +7,7 @@ import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/controllers/app_controller.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _attachmentCounts = counts;
           _username = prefs.getString('username');
         });
+        context.read<AppController>().requestNotificationPermissions();
       }
     });
   }
