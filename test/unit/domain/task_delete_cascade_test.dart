@@ -9,6 +9,8 @@ import 'package:todow/domain/services/reminder_scheduler.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 
 
+import 'package:todow/domain/models/reminder.dart';
+
 class MockTaskRepository implements TaskRepository {
   final Map<String, Task> _tasks = {};
   @override
@@ -19,7 +21,15 @@ class MockTaskRepository implements TaskRepository {
   @override
   Future<void> delete(String id) async => _tasks.remove(id);
   @override
-  Future<List<Task>> getAll({TaskStatus? status, String? query, List<String>? tags, TaskSort sort = TaskSort.dueDateAsc}) async => _tasks.values.toList();
+  Future<List<Task>> getAll({TaskStatus? status, String? query, List<String>? tags}) async => _tasks.values.toList();
+  @override
+  Future<List<ScheduledReminder>> getActiveReminders() async => [];
+  @override
+  Future<List<ScheduledReminder>> getRemindersForTask(String taskId) async => [];
+  @override
+  Future<void> saveReminders(String taskId, List<ScheduledReminder> reminders) async {}
+  @override
+  Future<void> updateReminder(ScheduledReminder reminder) async {}
   @override
   Future<Task?> getById(String id) async => _tasks[id];
   @override

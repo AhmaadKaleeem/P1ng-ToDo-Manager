@@ -23,14 +23,13 @@ class MockTaskRepository implements TaskRepository {
   Future<Task?> getById(String id) async => _tasks[id];
 
   @override
-  Future<List<Task>> getAll({TaskStatus? status, String? query, TaskSort sort = TaskSort.manual, List<String>? tags}) async {
+  Future<List<Task>> getAll({TaskStatus? status, String? query, List<String>? tags}) async {
     var list = _tasks.values.toList();
     if (status != null) list = list.where((t) => t.status == status).toList();
-    if (sort == TaskSort.manual) {
-      list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    }
+    list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return list;
   }
+
 
   @override
   Future<Task> update(Task task) async {

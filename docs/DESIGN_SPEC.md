@@ -2,7 +2,7 @@
 
 ## Art Direction
 
-> Todow is a warm light task canvas. A clean cream background floats solid white cards with soft shadows. Action is driven by Azure; attention is driven by Amber. Gradients are strictly prohibited. The corner arc decor uses specific solid colors layered over the background.
+> Todow is a warm light task canvas. A clean cream background floats solid white cards with soft shadows. Action is driven by Azure; attention is driven by Amber. Gradients are prohibited on backgrounds, decor arcs, and standard UI elements. **Exception:** Roadmap summary cards use curated linear gradients (Azure → Amber) as visual landmarks — they enhance scanability and create clear hierarchy against the neutral canvas. The corner arc decor uses specific solid colors layered over the background.
 
 This sentence is the app's visual contract. Every screen must be auditable against it.
 
@@ -93,9 +93,15 @@ Never mix. Gradients are prohibited. An amber button is a bug. A gradient on any
 
 ### Task Editor
 - **Header**: "New task" 34/w800/-0.8/textPrimary + Amber underline.
-- **WHEN Row**: Compact pills. Selected = solid action + white text. Unselected = transparent + 1px border. Icon buttons = white surface + 1px border.
-- **PROJECTS Row**: Compact pills. Selected = solid cycle color (Navy/Pink/Coral) + white text. Unselected = transparent + 1px border.
-- **TASK Fields**: Single white surface block with 1px divider.
+- **Section Header**: 13/w700/tracking 1.2/textSecondary, uppercase.
+- **Pill**: Compact shape. Selected = solid color + white text. Unselected = transparent + 1px border. Icon buttons = white surface + 1px border.
+- **Grouped Block**: White surface, soft shadow, border radius 24, 1px divider between internal fields.
+- **Task Row**: Inside a grouped block. 1px divider between rows.
+
+### FR-01.v3 Filtering Controls
+- **Search Bar**: White surface, soft shadow, expanded input field replacing header text, textPrimary 15/w400.
+- **Filter Chip**: Horizontal scrollable row below header. Selected = solid AppColors.action + white text. Unselected = transparent + 1px border.
+- **Sort Menu Icon**: Icon in header, opens standard modal bottom sheet with sort options.
 
 ## FR-01.v2 Task Dependency Graph
 

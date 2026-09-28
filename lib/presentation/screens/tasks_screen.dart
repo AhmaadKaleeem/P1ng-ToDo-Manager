@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/models/query.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:provider/provider.dart';
 

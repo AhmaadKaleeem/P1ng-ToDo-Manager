@@ -1,57 +1,53 @@
 # Todow
 
-A fast, offline-first productivity canvas that keeps all your student work in one place.
+Todow is a Flutter mobile app for students who need a task manager that gets out of the way. No accounts. No syncing. No subscription tiers. You open it, you see your tasks, you get things done.
 
-## The Problem
-You have assignments in a web portal, tasks in a to-do app, schedules in a calendar, and files buried on your hard drive. Every time you sit down to study, you spend ten minutes just gathering your context across five different tabs. That friction kills focus before you even start working.
+---
 
-## The Solution
-Todow replaces the scattered tabs with a single, unified local application. No cloud subscriptions required, no forced logins. Your data lives on your device, and the app works perfectly whether you have a connection in a lecture hall or are completely offline in the library.
+## What it does
 
-## Project Status
+**Task management** that actually feels fast. Every task has a title, description, priority, due date, and category. The list itself has drag-to-reorder so you can manually sequence your day by importance. Swipe right to complete, swipe left to delete — no confirmation dialogs. Double-tap between two tasks to insert a new one exactly there without losing your place.
 
-### ✅ Feature 1: Advanced Task Management (Complete)
-Managing your workload should feel fluid and instant. We built tactile interactions directly into the active task list so you can organize your day without opening a single menu.
-* **Drag to reorder:** Grab any row and move it to the exact spot you want.
-* **Swipe to act:** Swipe right to complete a task. Swipe left to delete it. One smooth gesture clears out finished work instantly.
-* **Double tap to insert:** Double tap the space between any two tasks to drop a text field exactly there. Type and hit Enter. Your flow stays unbroken.
-* **Splash screen skip:** A tailored greeting that lets returning users bypass the intro and get straight to work.
+**Animated check-off and undo.** Tapping the circle on a task draws a strikethrough across the title from left to right, then moves it to the Completed section. Tap the checkmark again and the line retracts in reverse before the task drops back into the active list. No jarring rebuilds.
 
-### 🚧 Feature 2: Local Attachments (In Progress)
-Work requires context. We are currently building local file attachment support so you can pin PDFs, images, and lecture notes directly to the tasks they belong to. When you sit down to start an assignment, the exact file you need is already waiting for you.
+**Search, filter, and sort.** A persistent search bar sits above your task list. Filter by due status — Overdue, Today, This Week, No Date. Sort by due date, priority, creation time, or title. Reset to manual sort with one tap at the bottom of the sort sheet.
 
-## Technical Architecture
-The application follows a clean, feature-first layered architecture designed for maintainability and offline reliability.
+**Relative due labels.** Tasks show dates the way people actually think about them: Today, Tomorrow, Yesterday, Friday, Oct 3, Oct 3 2027. Overdue tasks call it out directly: Overdue · Oct 3. No time-of-day clutter unless a task is due today.
 
-* **Presentation:** Flutter UI, Riverpod state management, and `ChangeNotifier` controllers.
-* **Domain:** Pure Dart models, services, and repository interfaces. Contains core business logic and is completely independent of the Flutter framework.
-* **Data:** SQLite persistence via `sqflite`.
+**Roadmap cards.** The home screen shows three project cards at the top — your most active categories — with task counts and a progress bar. Tap to drill into any roadmap.
 
-For in-depth documentation, see the `docs/` directory:
-* [Product Scope](docs/PRODUCT.md)
-* [Architecture Details](docs/ARCHITECTURE.md)
-* [Design Specifications](docs/DESIGN_SPEC.md)
-* [Core Flows](docs/FLOWS.md)
-* [Roadmap](docs/ROADMAP.md)
+**Attachments.** Each task can have files attached to it — images, PDFs, local documents. The attachment count shows on the task row. Open or remove them from the editor.
 
-## Development Setup
+**Reminders.** Set multiple reminders per task, absolute or relative. Completing a task cancels all its pending reminders automatically. Preset reminder schedules for normal assignments, high-priority work, or critical deadlines.
 
-1. Install dependencies:
-   ```bash
-   flutter pub get
-   ```
+**Quick add.** A text field at the bottom of the task list for fast capture without opening the full editor.
 
-2. Run the application:
-   ```bash
-   flutter run
-   ```
+---
 
-3. Run the test suite:
-   ```bash
-   flutter test
-   ```
+Everything is stored locally on your device. No cloud, no account required, works completely offline.
 
-4. Verify static analysis:
-   ```bash
-   flutter analyze
-   ```
+---
+
+## Setup
+
+```bash
+flutter pub get
+flutter run
+```
+
+Run tests:
+
+```bash
+flutter test
+flutter analyze
+```
+
+---
+
+## Docs
+
+- [Product spec](docs/PRODUCT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Design spec](docs/DESIGN_SPEC.md)
+- [User flows](docs/FLOWS.md)
+- [Roadmap](docs/ROADMAP.md)

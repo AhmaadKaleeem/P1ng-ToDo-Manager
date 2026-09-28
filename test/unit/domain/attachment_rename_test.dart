@@ -9,6 +9,7 @@ import 'package:todow/domain/services/reminder_scheduler.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/attachment.dart';
 
 // Dummy mocks for dependencies
 class MockTaskRepo implements TaskRepository {
@@ -17,15 +18,20 @@ class MockTaskRepo implements TaskRepository {
   @override
   Future<Task?> getById(String id) async => null;
   @override
-  Future<List<Task>> getAll({TaskStatus? status, String? query, TaskSort sort = TaskSort.manual, List<String>? tags}) async => [];
+  Future<List<Task>> getAll({TaskStatus? status, String? query, List<String>? tags}) async => [];
   @override
   Future<Task> update(Task task) async => task;
   @override
   Future<void> delete(String id) async {}
+  
   @override
-  Future<List<Task>> getByStatus(TaskStatus status) async => [];
+  Future<List<ScheduledReminder>> getActiveReminders() async => [];
   @override
-  Future<List<Task>> getByRoadmap(String roadmap) async => [];
+  Future<List<ScheduledReminder>> getRemindersForTask(String taskId) async => [];
+  @override
+  Future<void> saveReminders(String taskId, List<ScheduledReminder> reminders) async {}
+  @override
+  Future<void> updateReminder(ScheduledReminder reminder) async {}
 }
 
 class MockFileStorage implements FileStorage {
@@ -42,8 +48,6 @@ class MockFileStorage implements FileStorage {
 }
 
 class MockReminderScheduler implements ReminderScheduler {
-  @override
-  Future<void> scheduleRemindersForTask(Task task, List<ScheduledReminder> reminders) async {}
   @override
   Future<void> cancelTaskReminders(String taskId) async {}
   @override

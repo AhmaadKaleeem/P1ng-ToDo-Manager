@@ -7,7 +7,7 @@ import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
 import 'package:todow/presentation/widgets/attachments_section.dart';
 
-const _kRoadmaps = ['Master Roadmap', 'Daily Tasks', 'Business'];
+const _kRoadmaps = ['Master Roadmap', 'Daily Tasks', 'Personal Notes'];
 
 class TaskEditorScreen extends StatefulWidget {
   final Task? task;
@@ -107,7 +107,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
     final d = await showDatePicker(
       context: context,
       initialDate: _dueAt ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
       builder: (ctx, child) => Theme(
         data: ThemeData.light().copyWith(
@@ -136,15 +136,28 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
     return task;
   }
 
+  bool _canPop = false;
+
   void _save() {
-    if (_title.text.trim().isEmpty) { Navigator.pop(context); return; }
-    final tc = context.read<TaskController>();
-    if (_workingTask == null) {
-      tc.createTask(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap);
-    } else {
-      tc.updateTask(_workingTask!.copyWith(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap));
+    if (_title.text.trim().isNotEmpty) {
+      final tc = context.read<TaskController>();
+      if (_workingTask == null) {
+        tc.createTask(title: _title.text.trim(), description: _notes.text.trim(), priority: _priority, dueAt: _dueAt, category: _selectedRoadmap);
+      } else {
+        tc.updateTask(_workingTask!.copyWith(
+          title: _title.text.trim(), 
+          description: _notes.text.trim(), 
+          priority: _priority, 
+          dueAt: _dueAt, 
+          clearDueAt: _dueAt == null,
+          category: _selectedRoadmap,
+        ));
+      }
     }
-    Navigator.pop(context);
+    setState(() => _canPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   String _fmtCustomDate(DateTime d) {
@@ -162,24 +175,30 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
   Widget build(BuildContext context) {
     final isNew = _workingTask == null;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          const CornerArcDecor(corner: Alignment.topLeft),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Close ─────────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          width: 36, height: 36,
+    return PopScope(
+      canPop: _canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _save();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Stack(
+          children: [
+            const CornerArcDecor(corner: Alignment.topLeft),
+            SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Close ─────────────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _save,
+                          child: Container(
+                            width: 36, height: 36,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: AppColors.divider, width: 1),
@@ -383,6 +402,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

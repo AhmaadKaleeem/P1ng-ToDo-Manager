@@ -105,17 +105,22 @@ class NotificationServiceImpl implements NotificationService {
       await _plugin.show(notificationId, title, body, details,
           payload: task.id);
     } else {
-      await _plugin.zonedSchedule(
-        notificationId,
-        title,
-        isConstant ? '$body\nActive until completed' : body,
-        tz.TZDateTime.from(scheduledAt, tz.local),
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: task.id,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      try {
+        await _plugin.zonedSchedule(
+          notificationId,
+          title,
+          isConstant ? '$body\nActive until completed' : body,
+          tz.TZDateTime.from(scheduledAt, tz.local),
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: task.id,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (e) {
+        // Fallback or ignore if exact alarms are not permitted on Android 12+
+        print('Warning: Failed to schedule exact alarm: $e');
+      }
     }
     return notificationId;
   }

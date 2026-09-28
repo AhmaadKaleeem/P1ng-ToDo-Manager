@@ -43,12 +43,12 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/Todow-App-Install-logo.png"
+  image_path: "assets/todow_logo.jpg"
   min_sdk_android: 21
 
 flutter_native_splash:
   color: "#F5F1EA"
-  image: "assets/Tofow-App-Logo-Inapp-Transparent.png"
+  image: "assets/Tofow-App-Logo-Inapp.png"
   android: true
   ios: true
 

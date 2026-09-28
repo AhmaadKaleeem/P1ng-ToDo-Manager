@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/models/subtask.dart';
@@ -7,6 +8,7 @@ import 'package:todow/domain/reminders/reminder_presets.dart';
 import 'dart:io';
 import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/models/query.dart';
 import 'package:todow/domain/repositories/attachment_repository.dart';
 import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
@@ -32,37 +34,40 @@ class TaskController extends ChangeNotifier {
   final FileStorage _fileStorage;
   static const _uuid = Uuid();
 
-  List<Task> _tasks = [];
+  List<Task> _allTasks = [];
   String _query = '';
-  TaskSort _sort = TaskSort.manual;
-  TaskStatus? _filterStatus;
+  TaskFilter _filter = TaskFilter.empty();
+  TaskSort _sort = TaskSort.dueDateAsc;
   String? _error;
   bool _loading = false;
 
-  List<Task> get tasks => List.unmodifiable(_tasks);
+  List<Task> get tasks => List.unmodifiable(_allTasks);
+  List<Task> get visibleTasks => applyQuery(_allTasks, SearchQuery(text: _query, filter: _filter, sort: _sort));
+  
   String get query => _query;
+  TaskFilter get filter => _filter;
   TaskSort get sort => _sort;
   String? get error => _error;
   bool get loading => _loading;
 
   List<Task> get inboxTasks =>
-      _tasks.where((t) => t.status == TaskStatus.inbox).toList();
+      _allTasks.where((t) => t.status == TaskStatus.inbox).toList();
 
   List<Task> get activeTasks =>
-      _tasks.where((t) => t.status == TaskStatus.active).toList();
+      _allTasks.where((t) => t.status == TaskStatus.active).toList();
 
-  List<Task> get overdueTasks => _tasks
+  List<Task> get overdueTasks => _allTasks
       .where((t) => t.isOverdue && t.status == TaskStatus.active)
       .toList();
 
-  List<Task> get todayTasks => _tasks
+  List<Task> get todayTasks => _allTasks
       .where((t) => t.isDueToday && t.status == TaskStatus.active)
       .toList();
 
   List<Task> get upcomingTasks {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    return _tasks.where((t) {
+    return _allTasks.where((t) {
       if (t.dueAt == null || t.status != TaskStatus.active) return false;
       final dueDay = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
       return dueDay.isAfter(tomorrow.subtract(const Duration(days: 1))) &&
@@ -77,11 +82,7 @@ class TaskController extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _tasks = await _repo.getAll(
-        status: _filterStatus,
-        query: _query.isEmpty ? null : _query,
-        sort: _sort,
-      );
+      _allTasks = await _repo.getAll();
     } catch (e) {
       _error = 'Could not load tasks. Please try again.';
     } finally {
@@ -90,19 +91,38 @@ class TaskController extends ChangeNotifier {
     }
   }
 
+  Timer? _queryDebounce;
+
+  @override
+  void dispose() {
+    _queryDebounce?.cancel();
+    super.dispose();
+  }
+
   void setQuery(String value) {
-    _query = value;
-    loadTasks();
+    if (_query == value) return;
+    _queryDebounce?.cancel();
+    _queryDebounce = Timer(const Duration(milliseconds: 150), () {
+      _query = value;
+      notifyListeners();
+    });
+  }
+
+  void setFilter(TaskFilter filter) {
+    _filter = filter;
+    notifyListeners();
   }
 
   void setSort(TaskSort sort) {
     _sort = sort;
-    loadTasks();
+    notifyListeners();
   }
 
-  void setStatusFilter(TaskStatus? status) {
-    _filterStatus = status;
-    loadTasks();
+  void clearQuery() {
+    _query = '';
+    _filter = TaskFilter.empty();
+    _sort = TaskSort.manual;
+    notifyListeners();
   }
 
   Future<Task?> getTask(String id) => _repo.getById(id);
@@ -127,7 +147,7 @@ class TaskController extends ChangeNotifier {
     final now = DateTime.now();
     final plan = reminderPlan ?? ReminderPresets.defaultPlan();
     final int actualSortOrder = sortOrder ?? 
-        (_tasks.isEmpty ? 0 : _tasks.fold<int>(0, (max, t) => t.sortOrder > max ? t.sortOrder : max) + 1);
+        (_allTasks.isEmpty ? 0 : _allTasks.fold<int>(0, (max, t) => t.sortOrder > max ? t.sortOrder : max) + 1);
         
     final task = Task(
       id: _uuid.v4(),
@@ -163,27 +183,29 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> completeTask(String id) async {
-    final task = await _repo.getById(id);
-    if (task == null) return;
-    final updated = task.copyWith(
+    final idx = _allTasks.indexWhere((t) => t.id == id);
+    if (idx == -1) return;
+    final updated = _allTasks[idx].copyWith(
       status: TaskStatus.completed,
       updatedAt: DateTime.now(),
     );
+    _allTasks[idx] = updated;
+    notifyListeners();
     await _repo.update(updated);
     await _scheduler.cancelTaskReminders(id);
-    await loadTasks();
   }
 
   Future<void> reopenTask(String id) async {
-    final task = await _repo.getById(id);
-    if (task == null) return;
-    final updated = task.copyWith(
+    final idx = _allTasks.indexWhere((t) => t.id == id);
+    if (idx == -1) return;
+    final updated = _allTasks[idx].copyWith(
       status: TaskStatus.active,
       updatedAt: DateTime.now(),
     );
+    _allTasks[idx] = updated;
+    notifyListeners();
     await _repo.update(updated);
     await _scheduler.syncTaskReminders(updated);
-    await loadTasks();
   }
 
   Future<void> archiveTask(String id) async {

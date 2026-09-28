@@ -93,7 +93,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       Transform.scale(
                         scale: 1.8,
                         child: Image.asset(
-                          'assets/Tofow-App-Logo-Inapp-Transparent.png', 
+                          'assets/Tofow-App-Logo-Inapp.png', 
                           height: 100, 
                           fit: BoxFit.contain,
                         ).animate()

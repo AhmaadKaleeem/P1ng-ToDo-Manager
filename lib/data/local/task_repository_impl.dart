@@ -4,6 +4,7 @@ import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/models/subtask.dart';
 import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/models/query.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
 
 class TaskRepositoryImpl implements TaskRepository {
