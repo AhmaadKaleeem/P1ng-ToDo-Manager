@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/services/notification_service.dart';
@@ -132,10 +133,10 @@ class NotificationServiceImpl implements NotificationService {
                   UILocalNotificationDateInterpretation.absoluteTime,
             );
           } catch (e2) {
-            print('Warning: Failed to schedule inexact fallback alarm: $e2');
+            debugPrint('Failed to schedule inexact fallback alarm: $e2');
           }
         } else {
-          print('Warning: Failed to schedule exact alarm: $e');
+          debugPrint('Failed to schedule exact alarm: $e');
         }
       }
     }
