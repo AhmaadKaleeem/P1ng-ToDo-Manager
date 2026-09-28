@@ -8,6 +8,7 @@ Todow solves the common student problem of juggling assignments and deadlines ac
 - **Task Management** Create, edit, complete, reopen, delete, archive. Includes title, description, priority, start/due dates, tags, and subtasks. Search, filter, and sort. Quick duplicate. Clone recurring tasks. Drag to reorder, swipe to act, and double tap to insert.
 - **Reminders & Alerts** Set multiple custom relative/absolute reminders per task, use intelligent presets (Normal, Assignment, Critical), or set a daily recurring reminder for a task. For high-stakes deadlines, flip on the Constant Reminder to relentlessly ping you until you actually finish the task.
 - **Attachments** Attach local images, PDFs, and files.
+- **Dashboard & Task Creation** Review your day from the dashboard and create tasks with their details in one focused form.
 
 ### In Progress
 - **Today View** Aggregates overdue, today's, upcoming, active reminders, timetable entries, and active focus sessions.
@@ -45,3 +46,11 @@ flutter analyze
 - [Design spec](docs/DESIGN_SPEC.md)
 - [User flows](docs/FLOWS.md)
 - [Roadmap](docs/ROADMAP.md)
+
+## Screenshots
+
+The screenshots below show the current app build.
+
+| Dashboard | Create task |
+| --- | --- |
+| ![Todow dashboard](screenshots/dashboard.png) | ![Create task screen](screenshots/create-task.png) |
