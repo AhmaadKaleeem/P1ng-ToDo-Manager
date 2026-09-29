@@ -7,6 +7,7 @@ class Roadmap {
     required this.colorIndex,
     required this.createdAt,
     required this.updatedAt,
+    this.orderIndex = 0,
     this.description,
   });
 
@@ -16,17 +17,22 @@ class Roadmap {
   final int colorIndex;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int orderIndex;
 
   Roadmap copyWith({
     String? title,
     String? description,
     int? colorIndex,
+    int? orderIndex,
     bool clearDescription = false,
-  }) => Roadmap(
+  }) =>
+      Roadmap(
         id: id,
         title: title ?? this.title,
-        description: clearDescription ? null : (description ?? this.description),
+        description:
+            clearDescription ? null : (description ?? this.description),
         colorIndex: colorIndex ?? this.colorIndex,
+        orderIndex: orderIndex ?? this.orderIndex,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
       );
@@ -36,6 +42,7 @@ class Roadmap {
         'title': title,
         'description': description,
         'color_index': colorIndex,
+        'order_index': orderIndex,
         'created_at': createdAt.millisecondsSinceEpoch,
         'updated_at': updatedAt.millisecondsSinceEpoch,
       };
@@ -45,8 +52,11 @@ class Roadmap {
         title: map['title']! as String,
         description: map['description'] as String?,
         colorIndex: map['color_index'] as int? ?? 0,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']! as int),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at']! as int),
+        orderIndex: map['order_index'] as int? ?? 0,
+        createdAt:
+            DateTime.fromMillisecondsSinceEpoch(map['created_at']! as int),
+        updatedAt:
+            DateTime.fromMillisecondsSinceEpoch(map['updated_at']! as int),
       );
 }
 
@@ -77,11 +87,13 @@ class Topic {
     int? orderIndex,
     TopicStatus? status,
     bool clearDescription = false,
-  }) => Topic(
+  }) =>
+      Topic(
         id: id,
         roadmapId: roadmapId,
         title: title ?? this.title,
-        description: clearDescription ? null : (description ?? this.description),
+        description:
+            clearDescription ? null : (description ?? this.description),
         orderIndex: orderIndex ?? this.orderIndex,
         status: status ?? this.status,
         createdAt: createdAt,
@@ -106,7 +118,9 @@ class Topic {
         description: map['description'] as String?,
         orderIndex: map['order_index'] as int? ?? 0,
         status: TopicStatus.values.byName(map['status']! as String),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']! as int),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at']! as int),
+        createdAt:
+            DateTime.fromMillisecondsSinceEpoch(map['created_at']! as int),
+        updatedAt:
+            DateTime.fromMillisecondsSinceEpoch(map['updated_at']! as int),
       );
 }

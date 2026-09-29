@@ -34,20 +34,30 @@ class RoadmapController extends ChangeNotifier {
   Object? get error => _error;
 
   Future<void> load() async {
-    _loading = true; notifyListeners();
+    _loading = true;
+    notifyListeners();
     try {
       _roadmaps = await _roadmapRepo.getAll();
       _error = null;
     } catch (e) {
       _error = e;
     } finally {
-      _loading = false; notifyListeners();
+      _loading = false;
+      notifyListeners();
     }
   }
 
-  Future<Roadmap> createRoadmap({required String title, String? description, int colorIndex = 0}) async {
+  Future<Roadmap> createRoadmap(
+      {required String title, String? description, int colorIndex = 0}) async {
     final now = DateTime.now();
-    final r = Roadmap(id: _uuid.v4(), title: title, description: description, colorIndex: colorIndex, createdAt: now, updatedAt: now);
+    final r = Roadmap(
+        id: _uuid.v4(),
+        title: title,
+        description: description,
+        colorIndex: colorIndex,
+        orderIndex: _roadmaps.length,
+        createdAt: now,
+        updatedAt: now);
     await _roadmapRepo.create(r);
     _roadmaps = [..._roadmaps, r];
     notifyListeners();
@@ -66,13 +76,39 @@ class RoadmapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<Topic>> getTopics(String roadmapId) => _topicRepo.getByRoadmapId(roadmapId);
+  Future<void> reorderRoadmaps(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex--;
+    final reordered = [..._roadmaps];
+    final roadmap = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, roadmap);
+    await _roadmapRepo.reorder(reordered);
+    _roadmaps = [
+      for (var i = 0; i < reordered.length; i++)
+        reordered[i].copyWith(orderIndex: i)
+    ];
+    notifyListeners();
+  }
+
+  Future<List<Topic>> getTopics(String roadmapId) =>
+      _topicRepo.getByRoadmapId(roadmapId);
   Future<Topic?> getTopic(String id) => _topicRepo.getById(id);
   Future<Roadmap?> getRoadmap(String id) => _roadmapRepo.getById(id);
 
-  Future<Topic> createTopic({required String roadmapId, required String title, String? description, required int orderIndex}) async {
+  Future<Topic> createTopic(
+      {required String roadmapId,
+      required String title,
+      String? description,
+      required int orderIndex}) async {
     final now = DateTime.now();
-    final t = Topic(id: _uuid.v4(), roadmapId: roadmapId, title: title, description: description, orderIndex: orderIndex, status: TopicStatus.pending, createdAt: now, updatedAt: now);
+    final t = Topic(
+        id: _uuid.v4(),
+        roadmapId: roadmapId,
+        title: title,
+        description: description,
+        orderIndex: orderIndex,
+        status: TopicStatus.pending,
+        createdAt: now,
+        updatedAt: now);
     await _topicRepo.create(t);
     return t;
   }
@@ -80,8 +116,10 @@ class RoadmapController extends ChangeNotifier {
   Future<void> updateTopic(Topic topic) => _topicRepo.update(topic);
   Future<void> deleteTopic(String id) => _topicRepo.delete(id);
 
-  Future<List<Task>> getTasksByTopic(String topicId) => _taskRepo.getByTopicId(topicId);
-  Future<List<Task>> getTasksByRoadmap(String roadmapId, {DateTime? from, DateTime? to}) =>
+  Future<List<Task>> getTasksByTopic(String topicId) =>
+      _taskRepo.getByTopicId(topicId);
+  Future<List<Task>> getTasksByRoadmap(String roadmapId,
+          {DateTime? from, DateTime? to}) =>
       _taskRepo.getByRoadmapId(roadmapId, from: from, to: to);
 
   Future<Roadmap> importDraft(RoadmapImportDraft draft) async {
@@ -91,6 +129,7 @@ class RoadmapController extends ChangeNotifier {
       title: draft.title,
       description: draft.rows.first.roadmapDescription,
       colorIndex: 0,
+      orderIndex: _roadmaps.length,
       createdAt: now,
       updatedAt: now,
     );
@@ -133,7 +172,8 @@ class RoadmapController extends ChangeNotifier {
           sourceType: TaskSourceType.local,
         ),
     ];
-    await _importRepo.importAll(roadmap: roadmap, topics: topicByKey.values.toList(), tasks: tasks);
+    await _importRepo.importAll(
+        roadmap: roadmap, topics: topicByKey.values.toList(), tasks: tasks);
     _roadmaps = [..._roadmaps, roadmap];
     notifyListeners();
     return roadmap;
@@ -146,9 +186,9 @@ class RoadmapController extends ChangeNotifier {
   }
 
   ReminderPreset _reminderPreset(String reminder) => switch (reminder) {
-    'assignment' => ReminderPreset.assignment,
-    'critical' => ReminderPreset.critical,
-    'none' => ReminderPreset.custom,
-    _ => ReminderPreset.normal,
-  };
+        'assignment' => ReminderPreset.assignment,
+        'critical' => ReminderPreset.critical,
+        'none' => ReminderPreset.custom,
+        _ => ReminderPreset.normal,
+      };
 }

@@ -25,8 +25,10 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE)''');
-  await db.execute('CREATE INDEX idx_attachments_task_id ON attachments(task_id)');
-  await db.execute('CREATE INDEX idx_attachments_remote_id ON attachments(remote_id)');
+  await db
+      .execute('CREATE INDEX idx_attachments_task_id ON attachments(task_id)');
+  await db.execute(
+      'CREATE INDEX idx_attachments_remote_id ON attachments(remote_id)');
   await db.execute('''CREATE TABLE scheduled_reminders (
     id TEXT PRIMARY KEY, task_id TEXT NOT NULL, scheduled_at TEXT NOT NULL,
     status TEXT NOT NULL, kind TEXT NOT NULL, snoozed_until TEXT,
@@ -54,6 +56,7 @@ Future<void> createDatabaseSchema(Database db, int version) async {
     title TEXT NOT NULL,
     description TEXT,
     color_index INTEGER NOT NULL DEFAULT 0,
+    order_index INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL)''');
   await db.execute('''CREATE TABLE topics (
@@ -69,9 +72,11 @@ Future<void> createDatabaseSchema(Database db, int version) async {
   await db.execute('CREATE INDEX idx_topics_roadmap_id ON topics(roadmap_id)');
 }
 
-Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) async {
+Future<void> upgradeDatabaseSchema(
+    Database db, int oldVersion, int newVersion) async {
   if (oldVersion < 2) {
-    await db.execute('ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+    await db.execute(
+        'ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
   }
   if (oldVersion < 3) {
     // Migrate legacy attachments table → FR-02 schema
@@ -89,15 +94,19 @@ Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) 
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE)''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_attachments_remote_id ON attachments(remote_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_attachments_remote_id ON attachments(remote_id)');
   }
   if (oldVersion < 4) {
-    await db.execute('ALTER TABLE subtasks ADD COLUMN description TEXT NOT NULL DEFAULT \'\'');
+    await db.execute(
+        'ALTER TABLE subtasks ADD COLUMN description TEXT NOT NULL DEFAULT \'\'');
   }
   if (oldVersion < 5) {
     await db.execute('ALTER TABLE tasks ADD COLUMN topic_id TEXT');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_topic_id ON tasks(topic_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tasks_topic_id ON tasks(topic_id)');
     await db.execute('''CREATE TABLE IF NOT EXISTS roadmaps (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -115,6 +124,11 @@ Future<void> upgradeDatabaseSchema(Database db, int oldVersion, int newVersion) 
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY(roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE)''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_topics_roadmap_id ON topics(roadmap_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_topics_roadmap_id ON topics(roadmap_id)');
+  }
+  if (oldVersion < 6) {
+    await db.execute(
+        'ALTER TABLE roadmaps ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0');
   }
 }

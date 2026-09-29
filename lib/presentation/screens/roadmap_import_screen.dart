@@ -1,14 +1,32 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap_import.dart';
 import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
+
+const _csvHeaders = [
+  'roadmap_title',
+  'roadmap_description',
+  'topic_title',
+  'topic_description',
+  'topic_order',
+  'topic_status',
+  'task_title',
+  'task_description',
+  'due_date',
+  'due_time',
+  'priority',
+  'task_status',
+  'reminder',
+];
 
 class RoadmapImportScreen extends StatefulWidget {
   const RoadmapImportScreen({super.key});
@@ -22,10 +40,118 @@ class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
   bool _loading = false;
   String? _fileName;
 
-  Future<void> _chooseFile(String extension) async {
+  Future<void> _downloadCsvTemplate() async {
+    final rows = [
+      _csvHeaders,
+      [
+        'Sample Roadmap',
+        'A sample plan you can replace with your own.',
+        'Python foundations',
+        'Start with the core concepts.',
+        '1',
+        'active',
+        'Set up your Python environment',
+        '',
+        '',
+        '',
+        'medium',
+        'active',
+        'none',
+      ],
+      [
+        'Sample Roadmap',
+        'A sample plan you can replace with your own.',
+        'Python foundations',
+        'Start with the core concepts.',
+        '1',
+        'active',
+        'Practice variables and types',
+        '',
+        '',
+        '',
+        'none',
+        'active',
+        'none',
+      ],
+      [
+        'Sample Roadmap',
+        'A sample plan you can replace with your own.',
+        'Build a small project',
+        '',
+        '2',
+        'pending',
+        'Create a command-line app',
+        '',
+        '',
+        '',
+        'low',
+        'active',
+        'none',
+      ],
+    ];
+    final bytes = Uint8List.fromList(utf8.encode(
+      rows.map((row) => row.map(_csvCell).join(',')).join('\r\n'),
+    ));
+
+    setState(() => _loading = true);
+    try {
+      final saved = kIsWeb ||
+              !{
+                TargetPlatform.android,
+                TargetPlatform.iOS,
+                TargetPlatform.macOS,
+              }.contains(defaultTargetPlatform)
+          ? await FileSaver.instance.saveFile(
+              name: 'roadmap-template',
+              bytes: bytes,
+              ext: 'csv',
+              mimeType: MimeType.csv,
+            )
+          : await FileSaver.instance.saveAs(
+              name: 'roadmap-template',
+              bytes: bytes,
+              ext: 'csv',
+              mimeType: MimeType.csv,
+            );
+      if (!mounted || saved == null) return;
+      _showTemplateMessage('CSV template downloaded.');
+    } catch (_) {
+      if (!mounted) return;
+      _showTemplateMessage(
+        'Couldn’t download the template. Try again.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showTemplateMessage(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        elevation: 0,
+        backgroundColor: isError ? AppColors.alert : AppColors.textPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _chooseFile([String? extension]) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: [extension],
+      allowedExtensions: extension == null ? ['csv', 'xlsx'] : [extension],
       withData: true,
     );
     final file = result?.files.singleOrNull;
@@ -47,9 +173,15 @@ class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
     final draft = _draft;
     if (draft == null || !draft.isValid) return;
     setState(() => _loading = true);
-    final roadmap = await context.read<RoadmapController>().importDraft(draft);
+    final roadmapController = context.read<RoadmapController>();
+    final taskController = context.read<TaskController>();
+    final roadmap = await roadmapController.importDraft(draft);
+    await taskController.loadTasks();
     if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RoadmapDetailScreen(roadmap: roadmap)));
+    Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (_) => RoadmapDetailScreen(roadmap: roadmap)));
   }
 
   @override
@@ -58,55 +190,285 @@ class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.background,
           surfaceTintColor: Colors.transparent,
-          title: const Text('Import Roadmap', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          title: const Text('Import Roadmap',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Bring an existing plan into Todow.', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-              const SizedBox(height: 24),
-              if (_fileName == null)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _loading ? null : () => _chooseFile('csv'),
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text('CSV'),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), foregroundColor: AppColors.textPrimary, side: const BorderSide(color: AppColors.divider)),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                children: [
+                  const Text(
+                    'Choose a file',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Import a plan from a CSV or Excel file.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.4,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _ImportFormatPanel(
+                    fileName: _fileName,
+                    enabled: !_loading,
+                    onCsv: () => _chooseFile('csv'),
+                    onExcel: () => _chooseFile('xlsx'),
+                    onChange: () => _chooseFile(),
+                  ),
+                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
+                  Material(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      onTap: _loading ? null : _downloadCsvTemplate,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.divider),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x0F000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Download Sample CSV',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  SizedBox(height: 3),
+                                  Text(
+                                    'Download editable CSV file to get started with your roadmap.',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: AppColors.action,
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: _loading
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(11),
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.download_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _loading ? null : () => _chooseFile('xlsx'),
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text('Excel'),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), foregroundColor: AppColors.textPrimary, side: const BorderSide(color: AppColors.divider)),
-                      ),
-                    ),
+                  ),
+                  if (_loading) ...[
+                    const SizedBox(height: 20),
+                    const LinearProgressIndicator(color: AppColors.action),
                   ],
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: _loading ? null : () => _chooseFile('csv'),
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: Text(_fileName!),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), foregroundColor: AppColors.textPrimary, side: const BorderSide(color: AppColors.divider)),
+                  if (_draft != null) _ImportPreview(draft: _draft!),
+                ],
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _draft?.isValid ?? false
+            ? SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _import,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.action,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Import Roadmap'),
+                  ),
                 ),
-              const SizedBox(height: 16),
-              if (_loading) const LinearProgressIndicator(color: AppColors.action),
-              if (_draft != null) _ImportPreview(draft: _draft!),
-              const Spacer(),
-              if (_draft?.isValid ?? false)
-                ElevatedButton(
-                  onPressed: _loading ? null : _import,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(56)),
-                  child: const Text('Import Roadmap'),
+              )
+            : null,
+      );
+}
+
+class _ImportFormatPanel extends StatelessWidget {
+  const _ImportFormatPanel({
+    required this.fileName,
+    required this.enabled,
+    required this.onCsv,
+    required this.onExcel,
+    required this.onChange,
+  });
+
+  final String? fileName;
+  final bool enabled;
+  final VoidCallback onCsv;
+  final VoidCallback onExcel;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.divider),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: fileName == null
+            ? Column(
+                children: [
+                  _ImportFormatOption(
+                    title: 'CSV',
+                    subtitle: 'Comma-separated values',
+                    enabled: enabled,
+                    onTap: onCsv,
+                  ),
+                  const Divider(height: 1, color: AppColors.divider),
+                  _ImportFormatOption(
+                    title: 'Excel',
+                    subtitle: 'Excel workbook (.xlsx)',
+                    enabled: enabled,
+                    onTap: onExcel,
+                  ),
+                ],
+              )
+            : _ImportFormatOption(
+                title: fileName!,
+                subtitle: 'Selected file',
+                enabled: enabled,
+                trailing: const Text(
+                  'Change',
+                  style: TextStyle(
+                    color: AppColors.action,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-            ],
+                onTap: onChange,
+              ),
+      );
+}
+
+class _ImportFormatOption extends StatelessWidget {
+  const _ImportFormatOption({
+    required this.title,
+    required this.subtitle,
+    required this.enabled,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool enabled;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.action.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.upload_file_rounded,
+                    color: AppColors.action,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                trailing ??
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textSecondary,
+                    ),
+              ],
+            ),
           ),
         ),
       );
@@ -121,18 +483,32 @@ class _ImportPreview extends StatelessWidget {
         padding: const EdgeInsets.only(top: 24),
         child: Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.divider)),
+          decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.divider)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(draft.isValid ? draft.title : 'Fix import errors', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text(draft.isValid ? draft.title : 'Fix import errors',
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 12),
-              Text('${draft.topicCount} Topics · ${draft.rows.length} Tasks', style: const TextStyle(color: AppColors.textSecondary)),
+              Text('${draft.topicCount} Topics · ${draft.rows.length} Tasks',
+                  style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 16),
               if (draft.errors.isEmpty)
-                const Text('Ready to import', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.action))
+                const Text('Ready to import',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: AppColors.action))
               else
-                for (final error in draft.errors) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(error, style: const TextStyle(color: AppColors.alert))),
+                for (final error in draft.errors)
+                  Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(error,
+                          style: const TextStyle(color: AppColors.alert))),
             ],
           ),
         ),
@@ -140,10 +516,11 @@ class _ImportPreview extends StatelessWidget {
 }
 
 class _RoadmapImportParser {
-  static const _headers = [
-    'roadmap_title', 'roadmap_description', 'topic_title', 'topic_description',
-    'topic_order', 'topic_status', 'task_title', 'task_description', 'due_date',
-    'due_time', 'priority', 'task_status', 'reminder',
+  static const _requiredHeaders = [
+    'roadmap_title',
+    'topic_title',
+    'topic_order',
+    'task_title',
   ];
 
   static RoadmapImportDraft parse(PlatformFile file) {
@@ -153,19 +530,32 @@ class _RoadmapImportParser {
           : _csvRows(utf8.decode(file.bytes!));
       return _normalize(rows);
     } catch (_) {
-      return const RoadmapImportDraft(rows: [], errors: ['Could not read this file. Use the Roadmap CSV or Excel template.']);
+      return const RoadmapImportDraft(rows: [], errors: [
+        'Could not read this file. Use the Roadmap CSV or Excel template.'
+      ]);
     }
   }
 
   static RoadmapImportDraft _normalize(List<List<String>> source) {
-    if (source.isEmpty) return const RoadmapImportDraft(rows: [], errors: ['The file is empty.']);
-    final columns = {for (var i = 0; i < source.first.length; i++) source.first[i].trim().toLowerCase(): i};
-    final missing = _headers.where((header) => !columns.containsKey(header)).toList();
-    if (missing.isNotEmpty) return RoadmapImportDraft(rows: const [], errors: ['Missing columns: ${missing.join(', ')}']);
-    String value(List<String> row, String header) {
-      final index = columns[header]!;
-      return index < row.length ? row[index].trim() : '';
+    if (source.isEmpty) {
+      return const RoadmapImportDraft(rows: [], errors: ['The file is empty.']);
     }
+    final columns = {
+      for (var i = 0; i < source.first.length; i++)
+        source.first[i].trim().toLowerCase(): i
+    };
+    final missing = _requiredHeaders
+        .where((header) => !columns.containsKey(header))
+        .toList();
+    if (missing.isNotEmpty) {
+      return RoadmapImportDraft(
+          rows: const [], errors: ['Missing columns: ${missing.join(', ')}']);
+    }
+    String value(List<String> row, String header) {
+      final index = columns[header];
+      return index == null || index >= row.length ? '' : row[index].trim();
+    }
+
     final errors = <String>[];
     final rows = <RoadmapImportRow>[];
     String? title;
@@ -183,49 +573,153 @@ class _RoadmapImportParser {
       final dueTime = value(row, 'due_time');
       final reminder = value(row, 'reminder').toLowerCase();
       final line = i + 1;
-      if (roadmapTitle.isEmpty) errors.add('Row $line: Roadmap title is required.');
+      if (roadmapTitle.isEmpty) {
+        errors.add('Row $line: Roadmap title is required.');
+      }
       if (topicTitle.isEmpty) errors.add('Row $line: Topic title is required.');
       if (taskTitle.isEmpty) errors.add('Row $line: Task title is required.');
-      if (topicOrder == null || topicOrder < 1) errors.add('Row $line: Topic order must be a positive number.');
-      if (!{'pending', 'active', 'completed'}.contains(topicStatus)) errors.add('Row $line: Invalid Topic status.');
-      if (!{'none', 'low', 'medium', 'high', 'critical'}.contains(priority)) errors.add('Row $line: Invalid priority.');
+      if (topicOrder == null || topicOrder < 1) {
+        errors.add('Row $line: Topic order must be a positive number.');
+      }
+      if (!{'pending', 'active', 'completed'}
+          .contains(topicStatus.isEmpty ? 'pending' : topicStatus)) {
+        errors.add('Row $line: Invalid Topic status.');
+      }
+      if (!{'none', 'low', 'medium', 'high', 'critical'}
+          .contains(priority.isEmpty ? 'none' : priority)) {
+        errors.add('Row $line: Invalid priority.');
+      }
       if (taskStatus == 'pending') taskStatus = 'active';
-      if (!{'inbox', 'active', 'completed', 'archived'}.contains(taskStatus)) errors.add('Row $line: Invalid task status.');
-      if (dueDate.isNotEmpty && DateTime.tryParse(dueDate) == null) errors.add('Row $line: Invalid date.');
-      if (dueTime.isNotEmpty && !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(dueTime)) errors.add('Row $line: Invalid time.');
-      if (!{'none', 'normal', 'assignment', 'critical'}.contains(reminder)) errors.add('Row $line: Invalid reminder.');
+      if (taskStatus.isEmpty) taskStatus = 'active';
+      if (!{'inbox', 'active', 'completed', 'archived'}.contains(taskStatus)) {
+        errors.add('Row $line: Invalid task status.');
+      }
+      if (dueDate.isNotEmpty && DateTime.tryParse(dueDate) == null) {
+        errors.add('Row $line: Invalid date.');
+      }
+      if (dueTime.isNotEmpty &&
+          !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(dueTime)) {
+        errors.add('Row $line: Invalid time.');
+      }
+      if (!{'none', 'normal', 'assignment', 'critical'}
+          .contains(reminder.isEmpty ? 'none' : reminder)) {
+        errors.add('Row $line: Invalid reminder.');
+      }
       title ??= roadmapTitle;
-      if (roadmapTitle.isNotEmpty && title != roadmapTitle) errors.add('Row $line: Only one Roadmap can be imported at a time.');
-      if (topicOrder != null) rows.add(RoadmapImportRow(roadmapTitle: roadmapTitle, roadmapDescription: value(row, 'roadmap_description'), topicTitle: topicTitle, topicDescription: value(row, 'topic_description'), topicOrder: topicOrder, topicStatus: topicStatus, taskTitle: taskTitle, taskDescription: value(row, 'task_description'), dueDate: dueDate, dueTime: dueTime, priority: priority, taskStatus: taskStatus, reminder: reminder));
+      if (roadmapTitle.isNotEmpty && title != roadmapTitle) {
+        errors.add('Row $line: Only one Roadmap can be imported at a time.');
+      }
+      if (topicOrder != null) {
+        rows.add(RoadmapImportRow(
+            roadmapTitle: roadmapTitle,
+            roadmapDescription: value(row, 'roadmap_description'),
+            topicTitle: topicTitle,
+            topicDescription: value(row, 'topic_description'),
+            topicOrder: topicOrder,
+            topicStatus: topicStatus.isEmpty ? 'pending' : topicStatus,
+            taskTitle: taskTitle,
+            taskDescription: value(row, 'task_description'),
+            dueDate: dueDate,
+            dueTime: dueTime,
+            priority: priority.isEmpty ? 'none' : priority,
+            taskStatus: taskStatus,
+            reminder: reminder.isEmpty ? 'none' : reminder));
+      }
     }
     return RoadmapImportDraft(rows: rows, errors: errors);
   }
 
   static List<List<String>> _csvRows(String input) {
-    final rows = <List<String>>[]; final row = <String>[]; final field = StringBuffer(); var quoted = false;
-    for (var i = 0; i < input.length; i++) { final char = input[i]; if (char == '"') { if (quoted && i + 1 < input.length && input[i + 1] == '"') { field.write(char); i++; } else { quoted = !quoted; } } else if (char == ',' && !quoted) { row.add(field.toString()); field.clear(); } else if ((char == '\n' || char == '\r') && !quoted) { if (char == '\r' && i + 1 < input.length && input[i + 1] == '\n') i++; row.add(field.toString()); field.clear(); rows.add(List.of(row)); row.clear(); } else { field.write(char); } }
-    if (field.isNotEmpty || row.isNotEmpty) { row.add(field.toString()); rows.add(row); }
+    final rows = <List<String>>[];
+    final row = <String>[];
+    final field = StringBuffer();
+    var quoted = false;
+    for (var i = 0; i < input.length; i++) {
+      final char = input[i];
+      if (char == '"') {
+        if (quoted && i + 1 < input.length && input[i + 1] == '"') {
+          field.write(char);
+          i++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (char == ',' && !quoted) {
+        row.add(field.toString());
+        field.clear();
+      } else if ((char == '\n' || char == '\r') && !quoted) {
+        if (char == '\r' && i + 1 < input.length && input[i + 1] == '\n') i++;
+        row.add(field.toString());
+        field.clear();
+        rows.add(List.of(row));
+        row.clear();
+      } else {
+        field.write(char);
+      }
+    }
+    if (field.isNotEmpty || row.isNotEmpty) {
+      row.add(field.toString());
+      rows.add(row);
+    }
     return rows;
   }
 
   static List<List<String>> _xlsxRows(Uint8List bytes) {
     final archive = ZipDecoder().decodeBytes(bytes);
-    String text(String name) => utf8.decode(archive.findFile(name)!.content as List<int>);
-    final shared = archive.findFile('xl/sharedStrings.xml') == null ? <String>[] : RegExp(r'<t[^>]*>(.*?)</t>', dotAll: true).allMatches(text('xl/sharedStrings.xml')).map((match) => _decode(match.group(1)!)).toList();
-    final sheet = archive.files.firstWhere((file) => file.name.startsWith('xl/worksheets/') && file.name.endsWith('.xml'));
+    String text(String name) =>
+        utf8.decode(archive.findFile(name)!.content as List<int>);
+    final shared = archive.findFile('xl/sharedStrings.xml') == null
+        ? <String>[]
+        : RegExp(r'<t[^>]*>(.*?)</t>', dotAll: true)
+            .allMatches(text('xl/sharedStrings.xml'))
+            .map((match) => _decode(match.group(1)!))
+            .toList();
+    final sheet = archive.files.firstWhere((file) =>
+        file.name.startsWith('xl/worksheets/') && file.name.endsWith('.xml'));
     final rows = <List<String>>[];
-    for (final row in RegExp(r'<row[^>]*>(.*?)</row>', dotAll: true).allMatches(utf8.decode(sheet.content as List<int>))) {
+    for (final row in RegExp(r'<row[^>]*>(.*?)</row>', dotAll: true)
+        .allMatches(utf8.decode(sheet.content as List<int>))) {
       final values = <int, String>{};
-      for (final cell in RegExp(r'<c[^>]*r="([A-Z]+)\d+"[^>]*>(.*?)</c>', dotAll: true).allMatches(row.group(1)!)) {
-        final column = _column(cell.group(1)!); final xml = cell.group(2)!;
-        final value = RegExp(r'<v>(.*?)</v>', dotAll: true).firstMatch(xml)?.group(1) ?? RegExp(r'<t[^>]*>(.*?)</t>', dotAll: true).firstMatch(xml)?.group(1) ?? '';
-        values[column] = xml.contains('t="s"') && int.tryParse(value) != null ? shared[int.parse(value)] : _decode(value);
+      for (final cell
+          in RegExp(r'<c[^>]*r="([A-Z]+)\d+"[^>]*>(.*?)</c>', dotAll: true)
+              .allMatches(row.group(1)!)) {
+        final column = _column(cell.group(1)!);
+        final xml = cell.group(2)!;
+        final value =
+            RegExp(r'<v>(.*?)</v>', dotAll: true).firstMatch(xml)?.group(1) ??
+                RegExp(r'<t[^>]*>(.*?)</t>', dotAll: true)
+                    .firstMatch(xml)
+                    ?.group(1) ??
+                '';
+        values[column] = xml.contains('t="s"') && int.tryParse(value) != null
+            ? shared[int.parse(value)]
+            : _decode(value);
       }
-      rows.add([for (var i = 0; i <= (values.keys.isEmpty ? 0 : values.keys.reduce((a, b) => a > b ? a : b)); i++) values[i] ?? '']);
+      rows.add([
+        for (var i = 0;
+            i <=
+                (values.keys.isEmpty
+                    ? 0
+                    : values.keys.reduce((a, b) => a > b ? a : b));
+            i++)
+          values[i] ?? ''
+      ]);
     }
     return rows;
   }
 
-  static int _column(String letters) { var value = 0; for (final code in letters.codeUnits) { value = value * 26 + code - 64; } return value - 1; }
-  static String _decode(String value) => value.replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&quot;', '"');
+  static int _column(String letters) {
+    var value = 0;
+    for (final code in letters.codeUnits) {
+      value = value * 26 + code - 64;
+    }
+    return value - 1;
+  }
+
+  static String _decode(String value) => value
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"');
 }
+
+String _csvCell(String value) => '"${value.replaceAll('"', '""')}"';

@@ -39,6 +39,7 @@ Support local attachments (images, PDFs, local files). Attach, open, remove. SQL
 
 ### FR-03 & FR-04 Reminders & Presets
 Multiple reminders per task (absolute or relative). Snooze, reschedule. Completing task cancels pending reminders.
+On first launch, Todow explains that notification access is used for task reminders before opening the operating-system permission prompt. The full-screen prompt can be skipped, and the explanation is shown once.
 Presets:
 - NORMAL: 1 day before + deadline
 - ASSIGNMENT: 2 days before + 1 day before + 3 hours before + 30 minutes before
@@ -58,7 +59,7 @@ Manual entry, CSV import, OCR image import.
 Flow: Upload/Extract → Draft → Review/Edit → Confirm → Persist.
 
 ### FR-12 & FR-13 Roadmaps
-Roadmaps turn long-term work into a clear route through ordered Topics. Large, alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, or add a task directly to a stage. Time filters retain the Topic name, keeping scheduled work connected to the larger plan. Topic status is controlled directly, while task progress is calculated from completed work. Create a Roadmap by hand or import or export it as CSV or Excel. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Removing a Topic or Roadmap leaves its tasks safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
+Roadmaps turn long-term work into a clear route through ordered Topics. Large, alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, or add a task directly to a stage. Time filters retain the Topic name, keeping scheduled work connected to the larger plan. Topic status is controlled directly, while task progress is calculated from completed work. Create a Roadmap by hand or import or export it as CSV or Excel. The import screen provides a downloadable CSV sample with multiple Topics and tasks. Replace its example rows or omit optional columns such as descriptions, due dates, priority, status, and reminders. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Reorder Roadmaps with the drag handle or move controls. Delete a Roadmap from its options menu; its tasks remain safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
 
 ## CSV Specification
 **Timetable CSV Columns**: `course,instructor,day,start_time,end_time,room`

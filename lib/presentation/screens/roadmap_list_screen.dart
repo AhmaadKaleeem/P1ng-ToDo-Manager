@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
@@ -6,51 +7,59 @@ import 'package:todow/presentation/controllers/roadmap_controller.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
 import 'package:todow/presentation/screens/roadmap_import_screen.dart';
 
-const _accentColors = [
-  AppColors.decorNavy,
-  AppColors.decorPink,
-  AppColors.decorCoral,
-  AppColors.action,
-  AppColors.attention,
+// 12 curated key-pairs — solid accent + gradient skin, aligned to design spec.
+// Index -1 = no explicit choice; colour is derived from roadmap.id hash.
+const _kPalette = [
+  // 0 Navy
+  (solid: Color(0xFF1E3A8A), grad: LinearGradient(colors: [Color(0xFF1E3A8A), Color(0xFF3155A2)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 1 Sky / Azure
+  (solid: Color(0xFF0EA5E9), grad: LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 2 Teal
+  (solid: Color(0xFF0D9488), grad: LinearGradient(colors: [Color(0xFF0D9488), Color(0xFF0F766E)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 3 Emerald
+  (solid: Color(0xFF059669), grad: LinearGradient(colors: [Color(0xFF059669), Color(0xFF047857)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 4 Amber
+  (solid: Color(0xFFF59E0B), grad: LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 5 Coral
+  (solid: Color(0xFFFB7185), grad: LinearGradient(colors: [Color(0xFFFB7185), Color(0xFFF43F5E)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 6 Pink
+  (solid: Color(0xFFF472B6), grad: LinearGradient(colors: [Color(0xFFF472B6), Color(0xFFEC4899)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 7 Violet
+  (solid: Color(0xFF7C3AED), grad: LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 8 Indigo
+  (solid: Color(0xFF4F46E5), grad: LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF4338CA)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 9 Rose
+  (solid: Color(0xFFEF4444), grad: LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 10 Slate
+  (solid: Color(0xFF475569), grad: LinearGradient(colors: [Color(0xFF475569), Color(0xFF334155)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  // 11 Amber-Pink fusion
+  (solid: Color(0xFFF59E0B), grad: LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFFB7185)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
 ];
 
-const _gradients = [
-  LinearGradient(
-    colors: [AppColors.decorNavy, Color(0xFF3155A2)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-  LinearGradient(
-    colors: [AppColors.decorPink, AppColors.decorCoral],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-  LinearGradient(
-    colors: [AppColors.attention, AppColors.decorCoral],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-  LinearGradient(
-    colors: [AppColors.action, Color(0xFF0284C7)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-  LinearGradient(
-    colors: [Color(0xFFF59E0B), Color(0xFFFB7185)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
+const _kColorNames = [
+  'Navy', 'Sky', 'Teal', 'Emerald', 'Amber',
+  'Coral', 'Pink', 'Violet', 'Indigo', 'Rose', 'Slate', 'Fusion',
 ];
 
-LinearGradient _gradient(int index) =>
-    _gradients[index % _gradients.length];
-Color _accent(int index) => _accentColors[index % _accentColors.length];
+/// Resolve the display index: -1 means auto-derive from id hash.
+int _resolvedIndex(Roadmap roadmap) {
+  if (roadmap.colorIndex >= 0) return roadmap.colorIndex % _kPalette.length;
+  return roadmap.id.hashCode.abs() % _kPalette.length;
+}
+
+/// For the picker preview — derive from title text (no ID yet).
+int _autoPreviewIndex(String title) =>
+    title.isEmpty ? 0 : title.hashCode.abs() % _kPalette.length;
+
+LinearGradient _gradient(Roadmap r) => _kPalette[_resolvedIndex(r)].grad;
+Color _accent(Roadmap r) => _kPalette[_resolvedIndex(r)].solid;
 
 class RoadmapListScreen extends StatelessWidget {
   const RoadmapListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final canGoBack = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -58,34 +67,72 @@ class RoadmapListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Roadmaps',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.8,
+                  // Top bar — back + actions
+                  Row(
+                    children: [
+                      if (canGoBack) ...[
+                        GestureDetector(
+                          onTap: () => Navigator.maybePop(context),
+                          child: Container(
+                            height: 34,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x0F000000),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.arrow_back_rounded,
+                                    size: 16, color: AppColors.textSecondary),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Back',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Your long-term learning paths',
-                          style: TextStyle(
-                              fontSize: 14, color: AppColors.textSecondary),
-                        ),
+                        const SizedBox(width: 8),
                       ],
+                      const Spacer(),
+                      _ImportButton(),
+                      const SizedBox(width: 8),
+                      _NewRoadmapButton(),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Title + subtitle — always full width, never wraps
+                  const Text(
+                    'Roadmaps',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.8,
                     ),
                   ),
-                  _ImportButton(),
-                  const SizedBox(width: 8),
-                  _NewRoadmapButton(),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Your long-term learning paths',
+                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  ),
                 ],
               ),
             ),
@@ -108,14 +155,18 @@ class RoadmapListScreen extends StatelessWidget {
                               builder: (_) => const RoadmapImportScreen())),
                     );
                   }
-                  return ListView.separated(
+                  return ReorderableListView.builder(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                    buildDefaultDragHandles: false,
+                    onReorder:
+                        context.read<RoadmapController>().reorderRoadmaps,
                     itemCount: ctrl.roadmaps.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
                     itemBuilder: (context, i) {
                       final roadmap = ctrl.roadmaps[i];
                       return _RoadmapCard(
+                        key: ValueKey(roadmap.id),
                         roadmap: roadmap,
+                        index: i,
                         isLead: i == 0,
                         onTap: () => Navigator.push(
                           context,
@@ -126,6 +177,16 @@ class RoadmapListScreen extends StatelessWidget {
                         onDelete: () => context
                             .read<RoadmapController>()
                             .deleteRoadmap(roadmap.id),
+                        onMoveUp: i == 0
+                            ? null
+                            : () => context
+                                .read<RoadmapController>()
+                                .reorderRoadmaps(i, i - 1),
+                        onMoveDown: i == ctrl.roadmaps.length - 1
+                            ? null
+                            : () => context
+                                .read<RoadmapController>()
+                                .reorderRoadmaps(i, i + 2),
                       );
                     },
                   );
@@ -146,8 +207,8 @@ class _ImportButton extends StatelessWidget {
             MaterialPageRoute(builder: (_) => const RoadmapImportScreen())),
         icon: const Icon(Icons.upload_file_rounded, size: 18),
         label: const Text('Import'),
-        style:
-            TextButton.styleFrom(foregroundColor: AppColors.action, minimumSize: const Size(48, 48)),
+        style: TextButton.styleFrom(
+            foregroundColor: AppColors.action, minimumSize: const Size(48, 48)),
       );
 }
 
@@ -170,35 +231,40 @@ class _NewRoadmapButton extends StatelessWidget {
   void showCreateDialog(BuildContext context) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    int selectedColor = 0;
+    // -1 = user has not explicitly chosen a colour yet
+    int selectedColor = -1;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => _CreateRoadmapSheet(
-          titleCtrl: titleCtrl,
-          descCtrl: descCtrl,
-          selectedColor: selectedColor,
-          onColorSelected: (i) => setState(() => selectedColor = i),
-          onSave: () {
-            final title = titleCtrl.text.trim();
-            if (title.isEmpty) return;
-            context.read<RoadmapController>().createRoadmap(
-                title: title,
-                description: descCtrl.text.trim().isEmpty
-                    ? null
-                    : descCtrl.text.trim(),
-                colorIndex: selectedColor);
-            Navigator.pop(ctx);
-          },
-          onImport: () {
-            Navigator.pop(ctx);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const RoadmapImportScreen()));
-          },
-        ),
+        builder: (ctx, setState) {
+          // Rebuild sheet when title changes so auto-preview updates
+          titleCtrl.addListener(() => setState(() {}));
+          return _CreateRoadmapSheet(
+            titleCtrl: titleCtrl,
+            descCtrl: descCtrl,
+            selectedColor: selectedColor,
+            autoPreviewIndex: _autoPreviewIndex(titleCtrl.text.trim()),
+            onColorSelected: (i) => setState(() => selectedColor = i),
+            onSave: () {
+              final title = titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              context.read<RoadmapController>().createRoadmap(
+                  title: title,
+                  description:
+                      descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                  colorIndex: selectedColor);
+              Navigator.pop(ctx);
+            },
+            onImport: () {
+              Navigator.pop(ctx);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const RoadmapImportScreen()));
+            },
+          );
+        },
       ),
     );
   }
@@ -206,16 +272,23 @@ class _NewRoadmapButton extends StatelessWidget {
 
 class _RoadmapCard extends StatefulWidget {
   const _RoadmapCard({
+    super.key,
     required this.roadmap,
+    required this.index,
     required this.isLead,
     required this.onTap,
     required this.onDelete,
+    required this.onMoveUp,
+    required this.onMoveDown,
   });
 
   final Roadmap roadmap;
+  final int index;
   final bool isLead;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
 
   @override
   State<_RoadmapCard> createState() => _RoadmapCardState();
@@ -226,8 +299,8 @@ class _RoadmapCardState extends State<_RoadmapCard> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _accent(widget.roadmap.colorIndex);
-    final grad = _gradient(widget.roadmap.colorIndex);
+    final accent = _accent(widget.roadmap);
+    final grad = _gradient(widget.roadmap);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -236,7 +309,6 @@ class _RoadmapCardState extends State<_RoadmapCard> {
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
-      onLongPress: () => _confirmDelete(context),
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 180),
@@ -315,15 +387,95 @@ class _RoadmapCardState extends State<_RoadmapCard> {
                           ),
                         ),
                         const Spacer(),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            shape: BoxShape.circle,
+                        PopupMenuButton<String>(
+                          tooltip: 'Roadmap options',
+                          color: AppColors.surface,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          onSelected: (value) {
+                            if (value == 'delete') _confirmDelete(context);
+                            if (value == 'up') widget.onMoveUp?.call();
+                            if (value == 'down') widget.onMoveDown?.call();
+                          },
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'up',
+                              enabled: widget.onMoveUp != null,
+                              child: Row(children: [
+                                Icon(Icons.arrow_upward_rounded,
+                                    size: 18,
+                                    color: widget.onMoveUp != null
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary),
+                                const SizedBox(width: 12),
+                                Text('Move up',
+                                    style: TextStyle(
+                                        color: widget.onMoveUp != null
+                                            ? AppColors.textPrimary
+                                            : AppColors.textSecondary)),
+                              ]),
+                            ),
+                            PopupMenuItem(
+                              value: 'down',
+                              enabled: widget.onMoveDown != null,
+                              child: Row(children: [
+                                Icon(Icons.arrow_downward_rounded,
+                                    size: 18,
+                                    color: widget.onMoveDown != null
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary),
+                                const SizedBox(width: 12),
+                                Text('Move down',
+                                    style: TextStyle(
+                                        color: widget.onMoveDown != null
+                                            ? AppColors.textPrimary
+                                            : AppColors.textSecondary)),
+                              ]),
+                            ),
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(children: const [
+                                Icon(Icons.delete_outline_rounded,
+                                    size: 18, color: AppColors.alert),
+                                SizedBox(width: 12),
+                                Text('Delete',
+                                    style: TextStyle(
+                                        color: AppColors.alert,
+                                        fontWeight: FontWeight.w600)),
+                              ]),
+                            ),
+                          ],
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.more_horiz_rounded,
+                                size: 20, color: Colors.white),
                           ),
-                          child: const Icon(Icons.arrow_forward_rounded,
-                              size: 17, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        // Drag handle: uses immediate listener so it wins over
+                        // the outer GestureDetector long-press competition.
+                        ReorderableDragStartListener(
+                          index: widget.index,
+                          child: Tooltip(
+                            message: 'Drag to reorder',
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.drag_handle_rounded,
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  size: 18),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -358,11 +510,11 @@ class _RoadmapCardState extends State<_RoadmapCard> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: 0, // roadmap list doesn't have progress data, placeholder
+                        value:
+                            0, // roadmap list doesn't have progress data, placeholder
                         minHeight: 5,
                         backgroundColor: Colors.white.withValues(alpha: 0.22),
-                        valueColor:
-                            const AlwaysStoppedAnimation(Colors.white),
+                        valueColor: const AlwaysStoppedAnimation(Colors.white),
                       ),
                     ),
                   ],
@@ -378,10 +530,10 @@ class _RoadmapCardState extends State<_RoadmapCard> {
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
+      barrierColor: AppColors.background,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Delete Roadmap?',
             style: TextStyle(
                 fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
@@ -441,9 +593,7 @@ class _EmptyState extends StatelessWidget {
                 'Create a roadmap to plan your learning journey in structured stages.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                    height: 1.5)),
+                    fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onCreate,
@@ -476,6 +626,7 @@ class _CreateRoadmapSheet extends StatelessWidget {
     required this.titleCtrl,
     required this.descCtrl,
     required this.selectedColor,
+    required this.autoPreviewIndex,
     required this.onColorSelected,
     required this.onSave,
     required this.onImport,
@@ -483,7 +634,9 @@ class _CreateRoadmapSheet extends StatelessWidget {
 
   final TextEditingController titleCtrl;
   final TextEditingController descCtrl;
+  /// -1 = no explicit choice; autoPreviewIndex is the hashed fallback
   final int selectedColor;
+  final int autoPreviewIndex;
   final ValueChanged<int> onColorSelected;
   final VoidCallback onSave;
   final VoidCallback onImport;
@@ -499,7 +652,9 @@ class _CreateRoadmapSheet extends StatelessWidget {
           left: 24,
           right: 24,
           top: 16,
-          bottom: MediaQuery.of(context).padding.bottom + 24),
+          bottom: MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.of(context).padding.bottom +
+              24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -512,46 +667,105 @@ class _CreateRoadmapSheet extends StatelessWidget {
                       color: AppColors.divider,
                       borderRadius: BorderRadius.circular(10)))),
           const SizedBox(height: 24),
-          const Text('New Roadmap',
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.5)),
+          const Text(
+            'New Roadmap',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.5),
+          ),
           const SizedBox(height: 20),
-          _SheetField(
-              controller: titleCtrl, hint: 'Title', autofocus: true),
+          // Title — letters, spaces, underscores only
+          _NameField(controller: titleCtrl, hint: 'Title', autofocus: true),
           const SizedBox(height: 12),
-          _SheetField(
-              controller: descCtrl, hint: 'Description (optional)'),
-          const SizedBox(height: 20),
-          const Text('Accent',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                  color: AppColors.textSecondary)),
-          const SizedBox(height: 10),
+          _SheetField(controller: descCtrl, hint: 'Description (optional)'),
+          const SizedBox(height: 24),
+          // Colour label — bold name changes with selection
           Row(
-            children: List.generate(
-                _accentColors.length,
-                (i) => GestureDetector(
-                      onTap: () => onColorSelected(i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        margin: const EdgeInsets.only(right: 10),
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _accentColors[i],
-                          shape: BoxShape.circle,
-                          border: selectedColor == i
-                              ? Border.all(
-                                  color: AppColors.textPrimary, width: 2.5)
-                              : null,
-                        ),
+            children: [
+              const Text(
+                'Colour',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: AppColors.textPrimary),
+              ),
+              const SizedBox(width: 6),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  '— ${selectedColor == -1 ? 'Auto' : _kColorNames[selectedColor]}',
+                  key: ValueKey(selectedColor),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selectedColor == -1
+                        ? AppColors.textSecondary
+                        : _kPalette[selectedColor].solid,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              // Auto swatch — shows resolved preview colour with dashed ring
+              GestureDetector(
+                onTap: () => onColorSelected(-1),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _kPalette[autoPreviewIndex].solid
+                            .withValues(alpha: selectedColor == -1 ? 1.0 : 0.25),
+                        shape: BoxShape.circle,
+                        border: selectedColor == -1
+                            ? Border.all(color: AppColors.textPrimary, width: 2)
+                            : null,
                       ),
-                    )),
+                    ),
+                    // Dashed-ring overlay when auto is active
+                    if (selectedColor == -1)
+                      const Positioned.fill(
+                        child: _DashedCircle(color: Colors.white),
+                      ),
+                    const Icon(Icons.auto_awesome_rounded,
+                        size: 14, color: Colors.white),
+                  ],
+                ),
+              ),
+              ...List.generate(_kPalette.length, (i) {
+                final chosen = selectedColor == i;
+                return GestureDetector(
+                  onTap: () => onColorSelected(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _kPalette[i].solid,
+                      shape: BoxShape.circle,
+                      border: chosen
+                          ? Border.all(color: AppColors.textPrimary, width: 2.5)
+                          : null,
+                    ),
+                    child: chosen
+                        ? const Icon(Icons.check_rounded,
+                            size: 18, color: Colors.white)
+                        : null,
+                  ),
+                );
+              }),
+            ],
           ),
           const SizedBox(height: 28),
           ElevatedButton(
@@ -582,11 +796,10 @@ class _CreateRoadmapSheet extends StatelessWidget {
   }
 }
 
-class _SheetField extends StatelessWidget {
-  const _SheetField(
-      {required this.controller,
-      required this.hint,
-      this.autofocus = false});
+/// Title field: only letters (a-z A-Z), spaces, underscores allowed.
+class _NameField extends StatelessWidget {
+  const _NameField(
+      {required this.controller, required this.hint, this.autofocus = false});
 
   final TextEditingController controller;
   final String hint;
@@ -598,24 +811,85 @@ class _SheetField extends StatelessWidget {
       controller: controller,
       autofocus: autofocus,
       style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle:
-            TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.6)),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.divider)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.divider)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.action)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
+      inputFormatters: [
+        // Allow only letters, spaces, underscores
+        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z _]')),
+      ],
+      decoration: _fieldDecoration(hint),
     );
   }
 }
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({required this.controller, required this.hint});
+
+  final TextEditingController controller;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+      decoration: _fieldDecoration(hint),
+    );
+  }
+}
+
+InputDecoration _fieldDecoration(String hint) => InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+          color: AppColors.textSecondary.withValues(alpha: 0.6)),
+      filled: true,
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.divider)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.divider)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.action)),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+
+/// Dashed circle overlay for the auto-colour swatch.
+class _DashedCircle extends StatelessWidget {
+  const _DashedCircle({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _DashedCirclePainter(color));
+}
+
+class _DashedCirclePainter extends CustomPainter {
+  const _DashedCirclePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final r = size.shortestSide / 2 - 2;
+    const dashes = 12;
+    const dashAngle = 3.14159 * 2 / dashes;
+    for (var i = 0; i < dashes; i += 2) {
+      canvas.drawArc(
+        Rect.fromCircle(center: size.center(Offset.zero), radius: r),
+        i * dashAngle,
+        dashAngle * 0.7,
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedCirclePainter old) => old.color != color;
+}
+

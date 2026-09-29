@@ -11,13 +11,15 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
 
   @override
   Future<List<Roadmap>> getAll() async {
-    final rows = await _db.db.query('roadmaps', orderBy: 'created_at ASC');
+    final rows = await _db.db
+        .query('roadmaps', orderBy: 'order_index ASC, created_at ASC');
     return rows.map(Roadmap.fromMap).toList();
   }
 
   @override
   Future<Roadmap?> getById(String id) async {
-    final rows = await _db.db.query('roadmaps', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.db
+        .query('roadmaps', where: 'id = ?', whereArgs: [id], limit: 1);
     return rows.isEmpty ? null : Roadmap.fromMap(rows.first);
   }
 
@@ -29,8 +31,23 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
 
   @override
   Future<Roadmap> update(Roadmap roadmap) async {
-    await _db.db.update('roadmaps', roadmap.toMap(), where: 'id = ?', whereArgs: [roadmap.id]);
+    await _db.db.update('roadmaps', roadmap.toMap(),
+        where: 'id = ?', whereArgs: [roadmap.id]);
     return roadmap;
+  }
+
+  @override
+  Future<void> reorder(List<Roadmap> roadmaps) async {
+    await _db.db.transaction((txn) async {
+      for (var i = 0; i < roadmaps.length; i++) {
+        await txn.update(
+          'roadmaps',
+          {'order_index': i},
+          where: 'id = ?',
+          whereArgs: [roadmaps[i].id],
+        );
+      }
+    });
   }
 
   @override
@@ -61,13 +78,17 @@ class TopicRepositoryImpl implements TopicRepository {
 
   @override
   Future<List<Topic>> getByRoadmapId(String roadmapId) async {
-    final rows = await _db.db.query('topics', where: 'roadmap_id = ?', whereArgs: [roadmapId], orderBy: 'order_index ASC');
+    final rows = await _db.db.query('topics',
+        where: 'roadmap_id = ?',
+        whereArgs: [roadmapId],
+        orderBy: 'order_index ASC');
     return rows.map(Topic.fromMap).toList();
   }
 
   @override
   Future<Topic?> getById(String id) async {
-    final rows = await _db.db.query('topics', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.db
+        .query('topics', where: 'id = ?', whereArgs: [id], limit: 1);
     return rows.isEmpty ? null : Topic.fromMap(rows.first);
   }
 
@@ -79,7 +100,8 @@ class TopicRepositoryImpl implements TopicRepository {
 
   @override
   Future<Topic> update(Topic topic) async {
-    await _db.db.update('topics', topic.toMap(), where: 'id = ?', whereArgs: [topic.id]);
+    await _db.db.update('topics', topic.toMap(),
+        where: 'id = ?', whereArgs: [topic.id]);
     return topic;
   }
 
@@ -103,21 +125,32 @@ class RoadmapTaskRepositoryImpl implements RoadmapTaskRepository {
 
   @override
   Future<List<Task>> getByTopicId(String topicId) async {
-    final rows = await _db.db.query('tasks', where: 'topic_id = ?', whereArgs: [topicId], orderBy: 'due_at IS NULL, due_at ASC');
+    final rows = await _db.db.query('tasks',
+        where: 'topic_id = ?',
+        whereArgs: [topicId],
+        orderBy: 'due_at IS NULL, due_at ASC');
     return Future.wait(rows.map(_hydrate));
   }
 
   @override
-  Future<List<Task>> getByRoadmapId(String roadmapId, {DateTime? from, DateTime? to}) async {
+  Future<List<Task>> getByRoadmapId(String roadmapId,
+      {DateTime? from, DateTime? to}) async {
     // Get all topic IDs for this roadmap.
-    final topicRows = await _db.db.query('topics', columns: ['id'], where: 'roadmap_id = ?', whereArgs: [roadmapId]);
+    final topicRows = await _db.db.query('topics',
+        columns: ['id'], where: 'roadmap_id = ?', whereArgs: [roadmapId]);
     if (topicRows.isEmpty) return [];
     final ids = topicRows.map((r) => "'${r['id']}'").join(',');
 
     final where = StringBuffer('topic_id IN ($ids)');
     final args = <Object?>[];
-    if (from != null) { where.write(' AND due_at >= ?'); args.add(from.toIso8601String()); }
-    if (to != null) { where.write(' AND due_at <= ?'); args.add(to.toIso8601String()); }
+    if (from != null) {
+      where.write(' AND due_at >= ?');
+      args.add(from.toIso8601String());
+    }
+    if (to != null) {
+      where.write(' AND due_at <= ?');
+      args.add(to.toIso8601String());
+    }
 
     final rows = await _db.db.query(
       'tasks',
@@ -130,9 +163,13 @@ class RoadmapTaskRepositoryImpl implements RoadmapTaskRepository {
 
   Future<Task> _hydrate(Map<String, Object?> row) async {
     final id = row['id']! as String;
-    final subRows = await _db.db.query('subtasks', where: 'task_id = ?', whereArgs: [id], orderBy: 'sort_order ASC');
-    final attRows = await _db.db.query('attachments', where: 'task_id = ?', whereArgs: [id]);
-    return Task.fromMap(row, subtasks: subRows.map(Subtask.fromMap).toList(), attachments: attRows.map(Attachment.fromMap).toList());
+    final subRows = await _db.db.query('subtasks',
+        where: 'task_id = ?', whereArgs: [id], orderBy: 'sort_order ASC');
+    final attRows = await _db.db
+        .query('attachments', where: 'task_id = ?', whereArgs: [id]);
+    return Task.fromMap(row,
+        subtasks: subRows.map(Subtask.fromMap).toList(),
+        attachments: attRows.map(Attachment.fromMap).toList());
   }
 }
 
@@ -145,13 +182,14 @@ class RoadmapImportRepositoryImpl implements RoadmapImportRepository {
     required Roadmap roadmap,
     required List<Topic> topics,
     required List<Task> tasks,
-  }) => _db.db.transaction((txn) async {
-    await txn.insert('roadmaps', roadmap.toMap());
-    for (final topic in topics) {
-      await txn.insert('topics', topic.toMap());
-    }
-    for (final task in tasks) {
-      await txn.insert('tasks', task.toMap());
-    }
-  });
+  }) =>
+      _db.db.transaction((txn) async {
+        await txn.insert('roadmaps', roadmap.toMap());
+        for (final topic in topics) {
+          await txn.insert('topics', topic.toMap());
+        }
+        for (final task in tasks) {
+          await txn.insert('tasks', task.toMap());
+        }
+      });
 }

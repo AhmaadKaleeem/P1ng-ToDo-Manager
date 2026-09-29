@@ -11,11 +11,10 @@ class AppDatabase {
   static Future<AppDatabase> open([String? pathOverride]) async {
     if (_instance != null) return _instance!;
     _instance = AppDatabase._();
-    final dbPath =
-        pathOverride ?? join(await getDatabasesPath(), 'todow.db');
+    final dbPath = pathOverride ?? join(await getDatabasesPath(), 'todow.db');
     _db = await openDatabase(
-      dbPath, 
-      version: 5,
+      dbPath,
+      version: 6,
       onCreate: createDatabaseSchema,
       onUpgrade: upgradeDatabaseSchema,
     );

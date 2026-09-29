@@ -17,6 +17,7 @@ dependencies:
   timezone: ^0.10.0
   intl: ^0.20.2
   file_picker: ^8.1.7
+  file_saver: ^0.2.14
   uuid: ^4.5.1
   sqflite_common_ffi_web: ^0.4.5+4
   sqflite_common: ^2.5.4+6
@@ -42,10 +43,13 @@ dev_dependencies:
   flutter_native_splash: ^2.4.1
 
 flutter_launcher_icons:
-  android: true
+  android: "launcher_icon"
   ios: true
-  image_path: "assets/todow_logo.jpg"
+  image_path: "assets/launcher_icon.jpg"
+  background_color: "#FFFFFF"
   min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/launcher_icon.jpg"
 
 flutter_native_splash:
   color: "#F5F1EA"

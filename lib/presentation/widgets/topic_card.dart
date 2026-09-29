@@ -13,6 +13,27 @@ const _kActiveWidthFactor = 0.92;
 const _kPendingWidthFactor = 0.80;
 const _kCompletedWidthFactor = 0.76;
 
+// Inline palette — mirrors roadmap_list_screen palette exactly.
+const _kCardPalette = [
+  Color(0xFF1E3A8A), Color(0xFF0EA5E9), Color(0xFF0D9488), Color(0xFF059669),
+  Color(0xFFF59E0B), Color(0xFFFB7185), Color(0xFFF472B6), Color(0xFF7C3AED),
+  Color(0xFF4F46E5), Color(0xFFEF4444), Color(0xFF475569), Color(0xFFF59E0B),
+];
+
+Color _accentFromRoadmap(Roadmap r) {
+  final idx = r.colorIndex >= 0
+      ? r.colorIndex % _kCardPalette.length
+      : r.id.hashCode.abs() % _kCardPalette.length;
+  return _kCardPalette[idx];
+}
+
+/// Lightens an accent by mixing toward white.
+Color _lighten(Color c, double amt) => Color.lerp(c, Colors.white, amt)!;
+
+/// Darkens an accent slightly.
+Color _darken(Color c, double amt) => Color.lerp(c, Colors.black, amt)!
+    .withValues(alpha: c.a);
+
 class TopicCard extends StatefulWidget {
   const TopicCard({
     required this.topic,
@@ -79,6 +100,7 @@ class _TopicCardState extends State<TopicCard> {
       TopicStatus.pending => _kPendingWidthFactor,
       TopicStatus.completed => _kCompletedWidthFactor,
     };
+    final accent = _accentFromRoadmap(widget.roadmap);
 
     return ClipRect(
       child: AnimatedSize(
@@ -101,6 +123,7 @@ class _TopicCardState extends State<TopicCard> {
                     progress: _progress,
                     completed: _completed,
                     expanded: _tasksExpanded,
+                    accent: accent,
                     onExpand: () {
                       setState(() => _tasksExpanded = !_tasksExpanded);
                       widget.onGeometryChanged();
@@ -115,6 +138,7 @@ class _TopicCardState extends State<TopicCard> {
                     tasks: _tasks,
                     progress: _progress,
                     completed: _completed,
+                    accent: accent,
                     onTap: () => widget.onStatusChanged(TopicStatus.active),
                   ),
                 TopicStatus.pending => _PendingNode(
@@ -123,6 +147,7 @@ class _TopicCardState extends State<TopicCard> {
                     tasks: _tasks,
                     progress: _progress,
                     completed: _completed,
+                    accent: accent,
                     onTap: () => widget.onStatusChanged(TopicStatus.active),
                   ),
               },
@@ -135,7 +160,7 @@ class _TopicCardState extends State<TopicCard> {
 }
 
 // ─────────────────────────────── ACTIVE NODE ────────────────────────────────
-// Largest, most dominant. Full gradient, description, progress, task list.
+// Largest, most dominant. Full gradient from roadmap accent, task list.
 
 class _ActiveNode extends StatelessWidget {
   const _ActiveNode({
@@ -145,6 +170,7 @@ class _ActiveNode extends StatelessWidget {
     required this.progress,
     required this.completed,
     required this.expanded,
+    required this.accent,
     required this.onExpand,
     required this.onTaskEdited,
     required this.onTasksChanged,
@@ -156,6 +182,7 @@ class _ActiveNode extends StatelessWidget {
   final double progress;
   final int completed;
   final bool expanded;
+  final Color accent;
   final VoidCallback onExpand;
   final VoidCallback onTaskEdited;
   final VoidCallback onTasksChanged;
@@ -163,11 +190,12 @@ class _ActiveNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentDark = _darken(accent, 0.22);
     return Container(
       constraints: const BoxConstraints(minHeight: 220),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.action, Color(0xFF0369A1)],
+        gradient: LinearGradient(
+          colors: [accent, accentDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -175,7 +203,7 @@ class _ActiveNode extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.action.withValues(alpha: 0.30),
+            color: accent.withValues(alpha: 0.35),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -340,7 +368,7 @@ class _ActiveNode extends StatelessWidget {
 }
 
 // ─────────────────────────────── COMPLETED NODE ─────────────────────────────
-// Smaller, quieter. Warm surface, amber accent, settled visual weight.
+// Smaller, quieter. Uses a tinted accent surface — settled, done.
 
 class _CompletedNode extends StatelessWidget {
   const _CompletedNode({
@@ -349,6 +377,7 @@ class _CompletedNode extends StatelessWidget {
     required this.tasks,
     required this.progress,
     required this.completed,
+    required this.accent,
     required this.onTap,
   });
 
@@ -356,10 +385,13 @@ class _CompletedNode extends StatelessWidget {
   final List<Task> tasks;
   final double progress;
   final int completed;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final bg = _lighten(accent, 0.88);
+    final border = accent.withValues(alpha: 0.28);
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(22),
@@ -370,15 +402,14 @@ class _CompletedNode extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 148),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
+            color: bg,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-                color: AppColors.attention.withValues(alpha: 0.22), width: 1.5),
+            border: Border.all(color: border, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: accent.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -389,14 +420,13 @@ class _CompletedNode extends StatelessWidget {
                 children: [
                   _NodeBadge(
                     label: 'COMPLETED · ${_ordinal(topic.orderIndex)}',
-                    color: AppColors.attention.withValues(alpha: 0.15),
-                    textColor: AppColors.attention,
+                    color: accent.withValues(alpha: 0.16),
+                    textColor: _darken(accent, 0.1),
                     icon: Icons.check_rounded,
                   ),
                   const Spacer(),
                   Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary.withValues(alpha: 0.5),
-                      size: 20),
+                      color: accent.withValues(alpha: 0.4), size: 20),
                 ],
               ),
               const SizedBox(height: 10),
@@ -404,11 +434,11 @@ class _CompletedNode extends StatelessWidget {
                 topic.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   height: 1.2,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: _darken(accent, 0.25),
                 ),
               ),
               const SizedBox(height: 16),
@@ -417,6 +447,7 @@ class _CompletedNode extends StatelessWidget {
                 completed: completed,
                 total: tasks.length,
                 onDark: false,
+                accent: accent,
               ),
             ],
           ),
@@ -427,7 +458,7 @@ class _CompletedNode extends StatelessWidget {
 }
 
 // ─────────────────────────────── PENDING NODE ───────────────────────────────
-// Medium size. Light blue-tinted. Clearly part of the path but lighter weight.
+// Medium. Softly tinted with the roadmap accent — visible but not dominant.
 
 class _PendingNode extends StatelessWidget {
   const _PendingNode({
@@ -436,6 +467,7 @@ class _PendingNode extends StatelessWidget {
     required this.tasks,
     required this.progress,
     required this.completed,
+    required this.accent,
     required this.onTap,
   });
 
@@ -443,10 +475,13 @@ class _PendingNode extends StatelessWidget {
   final List<Task> tasks;
   final double progress;
   final int completed;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final bg = _lighten(accent, 0.94);
+    final border = accent.withValues(alpha: 0.18);
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(22),
@@ -457,13 +492,12 @@ class _PendingNode extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 170),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: bg,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-                color: AppColors.action.withValues(alpha: 0.14), width: 1.5),
+            border: Border.all(color: border, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: AppColors.action.withValues(alpha: 0.06),
+                color: accent.withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 3),
               ),
@@ -476,13 +510,12 @@ class _PendingNode extends StatelessWidget {
                 children: [
                   _NodeBadge(
                     label: 'UP NEXT · ${_ordinal(topic.orderIndex)}',
-                    color: AppColors.action.withValues(alpha: 0.10),
-                    textColor: AppColors.action,
+                    color: accent.withValues(alpha: 0.12),
+                    textColor: _darken(accent, 0.05),
                   ),
                   const Spacer(),
                   Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary.withValues(alpha: 0.5),
-                      size: 20),
+                      color: accent.withValues(alpha: 0.45), size: 20),
                 ],
               ),
               const SizedBox(height: 10),
@@ -490,11 +523,11 @@ class _PendingNode extends StatelessWidget {
                 topic.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   height: 1.2,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: _darken(accent, 0.3),
                 ),
               ),
               if (topic.description?.isNotEmpty ?? false) ...[
@@ -503,9 +536,9 @@ class _PendingNode extends StatelessWidget {
                   topic.description!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textSecondary,
+                    color: accent.withValues(alpha: 0.65),
                     height: 1.4,
                   ),
                 ),
@@ -516,6 +549,7 @@ class _PendingNode extends StatelessWidget {
                 completed: completed,
                 total: tasks.length,
                 onDark: false,
+                accent: accent,
               ),
             ],
           ),
@@ -576,21 +610,25 @@ class _NodeProgressBar extends StatelessWidget {
     required this.completed,
     required this.total,
     required this.onDark,
+    this.accent,
   });
 
   final double progress;
   final int completed;
   final int total;
   final bool onDark;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final barBg =
         onDark ? Colors.white.withValues(alpha: 0.22) : AppColors.divider;
-    final barFg = onDark ? Colors.white : AppColors.attention;
+    final barFg = onDark
+        ? Colors.white
+        : (accent ?? AppColors.attention);
     final textFg = onDark
         ? Colors.white.withValues(alpha: 0.80)
-        : AppColors.textSecondary;
+        : (accent?.withValues(alpha: 0.75) ?? AppColors.textSecondary);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,11 +638,16 @@ class _NodeProgressBar extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(5),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: barBg,
-                  valueColor: AlwaysStoppedAnimation(barFg),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, value, __) => LinearProgressIndicator(
+                    value: value,
+                    minHeight: 8,
+                    backgroundColor: barBg,
+                    valueColor: AlwaysStoppedAnimation(barFg),
+                  ),
                 ),
               ),
             ),

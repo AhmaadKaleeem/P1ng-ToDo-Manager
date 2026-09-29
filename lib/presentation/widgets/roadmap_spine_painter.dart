@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
@@ -25,7 +24,8 @@ class RoadmapSpinePainter extends CustomPainter {
     if (cardBounds.length < 2) return;
 
     for (int i = 0; i < cardBounds.length - 1; i++) {
-      final segProgress = ((progress * (cardBounds.length - 1)) - i).clamp(0.0, 1.0);
+      final segProgress =
+          ((progress * (cardBounds.length - 1)) - i).clamp(0.0, 1.0);
       if (segProgress <= 0) continue;
 
       final from = cardBounds[i];
@@ -35,7 +35,7 @@ class RoadmapSpinePainter extends CustomPainter {
       final status = topics[i].status;
 
       final paint = _paintFor(status)
-        ..strokeWidth = status == TopicStatus.active ? 3.5 : 2.5;
+        ..strokeWidth = status == TopicStatus.active ? 5 : 4;
 
       // Exit point: bottom-center of current card.
       final exit = from.bottomCenter;
@@ -43,16 +43,29 @@ class RoadmapSpinePainter extends CustomPainter {
       final entry = to.topCenter;
 
       final path = _buildPath(exit, entry, fromSide, toSide, from, to);
+      _drawSegment(
+        canvas,
+        path,
+        Paint()
+          ..color = AppColors.surface
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 12
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+        segProgress,
+      );
       _drawSegment(canvas, path, paint, segProgress);
 
       if (segProgress >= 1.0) {
         // Midpoint node dot
         final midT = 0.5;
         final metric = path.computeMetrics().first;
-        final midPt = metric.getTangentForOffset(metric.length * midT)?.position;
+        final midPt =
+            metric.getTangentForOffset(metric.length * midT)?.position;
         if (midPt != null) {
-          canvas.drawCircle(midPt, 5.5, Paint()..color = paint.color);
-          canvas.drawCircle(midPt, 3, Paint()..color = AppColors.background);
+          canvas.drawCircle(midPt, 8, Paint()..color = AppColors.surface);
+          canvas.drawCircle(midPt, 5, Paint()..color = paint.color);
+          canvas.drawCircle(midPt, 2, Paint()..color = AppColors.surface);
         }
         // Arrowhead near entry
         _drawArrow(canvas, entry, paint.color);
@@ -163,7 +176,7 @@ class RoadmapSpinePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
       TopicStatus.pending => Paint()
-        ..color = AppColors.divider
+        ..color = accentColor.withValues(alpha: 0.48)
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
     };

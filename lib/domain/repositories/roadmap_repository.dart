@@ -6,6 +6,7 @@ abstract class RoadmapRepository {
   Future<Roadmap?> getById(String id);
   Future<Roadmap> create(Roadmap roadmap);
   Future<Roadmap> update(Roadmap roadmap);
+  Future<void> reorder(List<Roadmap> roadmaps);
   Future<void> delete(String id);
 }
 
@@ -19,7 +20,8 @@ abstract class TopicRepository {
 
 abstract class RoadmapTaskRepository {
   Future<List<Task>> getByTopicId(String topicId);
-  Future<List<Task>> getByRoadmapId(String roadmapId, {DateTime? from, DateTime? to});
+  Future<List<Task>> getByRoadmapId(String roadmapId,
+      {DateTime? from, DateTime? to});
 }
 
 abstract class RoadmapImportRepository {

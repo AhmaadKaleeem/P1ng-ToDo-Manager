@@ -82,9 +82,22 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
       const RoadmapListScreen(),
     ];
 
-    return Scaffold(
+    return AppShellScope(
+      state: this,
+      child: Scaffold(
       backgroundColor: AppColors.surfaceElevated,
-      body: Stack(
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          // Swipe right → open drawer; swipe left → close drawer
+          if (details.primaryVelocity != null) {
+            if (details.primaryVelocity! > 200 && _animationController.isDismissed) {
+              toggleDrawer();
+            } else if (details.primaryVelocity! < -200 && !_animationController.isDismissed) {
+              toggleDrawer();
+            }
+          }
+        },
+        child: Stack(
         children: [
           // Shader Void Background
           if (_program != null)
@@ -166,9 +179,26 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
             child: pages[_index],
           ),
         ],
+        ),
+      ),
       ),
     );
   }
+}
+
+// ── Inherited scope so any descendant can open/close the drawer ───────────────
+class AppShellScope extends InheritedWidget {
+  const AppShellScope({required this.state, required super.child, super.key});
+  final AppShellState state;
+
+  static AppShellState of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AppShellScope>();
+    assert(scope != null, 'AppShellScope not found in widget tree');
+    return scope!.state;
+  }
+
+  @override
+  bool updateShouldNotify(AppShellScope oldWidget) => oldWidget.state != state;
 }
 
 class _DrawerItem extends StatelessWidget {

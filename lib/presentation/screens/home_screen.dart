@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/query.dart';
 import 'package:todow/domain/date_labels.dart';
+import 'package:todow/presentation/screens/app_shell.dart';
 const _softShadow = BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2));
 
 class HomeScreen extends StatefulWidget {
@@ -218,16 +219,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-                    child: Text(
-                      () {
-                        final hour = DateTime.now().hour;
-                        final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-                        return (_username != null && _username!.isNotEmpty)
-                            ? '$greeting,\n$_username'
-                            : 'Your\nProjects ($roadmapCount)';
-                      }(),
-                      style: const TextStyle(fontSize: 34, height: 1.1, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -1),
-                    ).animate().fadeIn().slideY(begin: 0.2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            () {
+                              final hour = DateTime.now().hour;
+                              final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+                              return (_username != null && _username!.isNotEmpty)
+                                  ? '$greeting,\n$_username'
+                                  : 'Your\nProjects ($roadmapCount)';
+                            }(),
+                            style: const TextStyle(fontSize: 34, height: 1.1, fontWeight: FontWeight.w800, color: AppColors.textPrimary, letterSpacing: -1),
+                          ).animate().fadeIn().slideY(begin: 0.2),
+                        ),
+                        GestureDetector(
+                          onTap: () => AppShellScope.of(context).toggleDrawer(),
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.only(top: 6, left: 12),
+                            child: Icon(Icons.menu_rounded, size: 26, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
