@@ -1,7 +1,4 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:todow/bootstrap.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/presentation/app.dart';
@@ -16,59 +13,49 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> with TickerProviderStateMixin {
+class AppShellState extends State<AppShell>
+    with SingleTickerProviderStateMixin {
   int _index = 0;
   late final AnimationController _animationController;
-  ui.FragmentProgram? _program;
-  late final Ticker _ticker;
-  final ValueNotifier<double> _time = ValueNotifier(0.0);
-  
+  final Map<int, Offset> _pointerOrigins = {};
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      vsync: this, 
+      vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _loadShader();
-    _ticker = createTicker((elapsed) {
-      if (_animationController.value > 0.001) {
-        _time.value += 0.016; // Simulate ~60fps progression
-      }
-    });
-    _ticker.start();
-  }
-
-  Future<void> _loadShader() async {
-    try {
-      final program = await ui.FragmentProgram.fromAsset('shaders/void.frag');
-      setState(() {
-        _program = program;
-      });
-    } catch (e) {
-      debugPrint('Failed to load void shader: $e');
-    }
   }
 
   @override
   void dispose() {
-    _ticker.dispose();
-    _time.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
   void toggleDrawer() {
-    final spring = SpringDescription(
-      mass: 1.0,
-      stiffness: 120.0,
-      damping: 14.0,
+    _animateDrawer(_animationController.value < 0.5);
+  }
+
+  void _animateDrawer(bool open) {
+    _animationController.animateTo(
+      open ? 1 : 0,
+      duration: Duration(milliseconds: open ? 320 : 220),
+      curve: open ? Curves.easeOutCubic : Curves.easeInCubic,
     );
-    
-    if (_animationController.isDismissed || _animationController.status == AnimationStatus.reverse) {
-      _animationController.animateWith(SpringSimulation(spring, _animationController.value, 1.0, _animationController.velocity));
-    } else {
-      _animationController.animateWith(SpringSimulation(spring, _animationController.value, 0.0, _animationController.velocity));
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    final origin = _pointerOrigins.remove(event.pointer);
+    if (origin == null) return;
+    final delta = event.position - origin;
+    if (delta.dx.abs() < 72 || delta.dx.abs() < delta.dy.abs() * 1.35) return;
+
+    if (delta.dx > 0 && _animationController.value < 0.5) {
+      _animateDrawer(true);
+    } else if (delta.dx < 0 && _animationController.value >= 0.5) {
+      _animateDrawer(false);
     }
   }
 
@@ -85,102 +72,225 @@ class AppShellState extends State<AppShell> with TickerProviderStateMixin {
     return AppShellScope(
       state: this,
       child: Scaffold(
-      backgroundColor: AppColors.surfaceElevated,
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          // Swipe right → open drawer; swipe left → close drawer
-          if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! > 200 && _animationController.isDismissed) {
-              toggleDrawer();
-            } else if (details.primaryVelocity! < -200 && !_animationController.isDismissed) {
-              toggleDrawer();
-            }
-          }
-        },
-        child: Stack(
-        children: [
-          // Shader Void Background
-          if (_program != null)
-            AnimatedBuilder(
-              animation: _time,
-              builder: (context, _) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: _VoidShaderPainter(_program!, _time.value),
-                );
-              }
-            ),
-          // Drawer Menu
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  const CircleAvatar(
-                    radius: 28,
-                    backgroundColor: AppColors.action,
-                    child: Icon(Icons.person, color: AppColors.background, size: 30),
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<SharedPreferences>(
-                    future: SharedPreferences.getInstance(),
-                    builder: (context, snapshot) {
-                      final name = snapshot.data?.getString('username') ?? 'Student';
-                      return Text('Welcome, $name', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary));
-                    }
-                  ),
-                  const SizedBox(height: 40),
-                  _DrawerItem(icon: Icons.today_outlined, label: 'Today', selected: _index == 0, onTap: () { setState(() => _index = 0); toggleDrawer(); }),
-                  _DrawerItem(icon: Icons.checklist_outlined, label: 'Tasks', selected: _index == 1, onTap: () { setState(() => _index = 1); toggleDrawer(); }),
-                  _DrawerItem(icon: Icons.timer_outlined, label: 'Focus', selected: _index == 2, onTap: () { setState(() => _index = 2); toggleDrawer(); }),
-                  _DrawerItem(icon: Icons.calendar_month_outlined, label: 'Timetable', selected: _index == 3, onTap: () { setState(() => _index = 3); toggleDrawer(); }),
-                  _DrawerItem(icon: Icons.route_outlined, label: 'Roadmaps', selected: _index == 4, onTap: () { setState(() => _index = 4); toggleDrawer(); }),
-                  const Spacer(),
-                  const Text('Good\nConsistency', style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 12),
-                  CustomPaint(
-                    size: const Size(120, 30),
-                    painter: _SparklinePainter(),
-                  )
-                ],
-              ),
-            ),
-          ),
-          // Main Content
-          AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              final slide = 280.0 * _animationController.value;
-              final scale = 1.0 - (0.15 * _animationController.value);
-              final radius = _animationController.value * 32.0;
-              final rotateY = -0.25 * _animationController.value;
-              
-              return Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001) // True 3D perspective
-                  ..translate(slide, 0.0, 0.0)
-                  ..scale(scale)
-                  ..rotateY(rotateY),
-                alignment: Alignment.centerLeft,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: Container(
-                    color: AppColors.background,
-                    child: IgnorePointer(
-                      ignoring: _animationController.value > 0.5,
-                      child: child,
+        backgroundColor: AppColors.background,
+        body: Listener(
+          onPointerDown: (event) =>
+              _pointerOrigins[event.pointer] = event.position,
+          onPointerUp: _onPointerUp,
+          onPointerCancel: (event) => _pointerOrigins.remove(event.pointer),
+          child: Stack(
+            children: [
+              ColoredBox(
+                color: AppColors.background,
+                child: SafeArea(
+                  child: SizedBox(
+                    width: 280,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: AppColors.decorPink, width: 2),
+                                    ),
+                                    child: const CircleAvatar(
+                                      radius: 23,
+                                      backgroundColor: AppColors.action,
+                                      child: Icon(Icons.person,
+                                          color: Colors.white, size: 25),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  FutureBuilder<SharedPreferences>(
+                                      future: SharedPreferences.getInstance(),
+                                      builder: (context, snapshot) {
+                                        final name = snapshot.data
+                                                ?.getString('username') ??
+                                            'Student';
+                                        return Text(name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontSize: 21,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textPrimary));
+                                      }),
+                                  const SizedBox(height: 24),
+                                  const _DrawerSectionLabel('MAIN'),
+                                  const SizedBox(height: 10),
+                                  _DrawerItem(
+                                      animation: _animationController,
+                                      index: 0,
+                                      label: 'Home',
+                                      accent: AppColors.action,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppColors.action,
+                                          Color(0xFF0284C7),
+                                        ],
+                                      ),
+                                      selected: _index == 0,
+                                      onTap: () {
+                                        setState(() => _index = 0);
+                                        _animateDrawer(false);
+                                      }),
+                                  _DrawerItem(
+                                      animation: _animationController,
+                                      index: 1,
+                                      label: 'Tasks',
+                                      accent: AppColors.decorPink,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppColors.decorPink,
+                                          AppColors.decorCoral,
+                                        ],
+                                      ),
+                                      selected: _index == 1,
+                                      onTap: () {
+                                        setState(() => _index = 1);
+                                        _animateDrawer(false);
+                                      }),
+                                  _DrawerItem(
+                                      animation: _animationController,
+                                      index: 2,
+                                      label: 'Focus',
+                                      accent: AppColors.attention,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppColors.attention,
+                                          Color(0xFFF97316),
+                                        ],
+                                      ),
+                                      selected: _index == 2,
+                                      onTap: () {
+                                        setState(() => _index = 2);
+                                        _animateDrawer(false);
+                                      }),
+                                  const SizedBox(height: 8),
+                                  const _DrawerSectionLabel('PLAN'),
+                                  const SizedBox(height: 10),
+                                  _DrawerItem(
+                                      animation: _animationController,
+                                      index: 3,
+                                      label: 'Timetable',
+                                      accent: AppColors.decorCoral,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppColors.decorCoral,
+                                          Color(0xFFBE123C),
+                                        ],
+                                      ),
+                                      selected: _index == 3,
+                                      onTap: () {
+                                        setState(() => _index = 3);
+                                        _animateDrawer(false);
+                                      }),
+                                  _DrawerItem(
+                                      animation: _animationController,
+                                      index: 4,
+                                      label: 'Roadmaps',
+                                      accent: AppColors.decorNavy,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppColors.decorNavy,
+                                          Color(0xFF3155A2),
+                                        ],
+                                      ),
+                                      selected: _index == 4,
+                                      onTap: () {
+                                        setState(() => _index = 4);
+                                        _animateDrawer(false);
+                                      }),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 10, bottom: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AnimatedBuilder(
+                                  animation: _animationController,
+                                  builder: (context, _) => CustomPaint(
+                                    size: const Size(104, 24),
+                                    painter: _DrawerWavePainter(
+                                        _animationController.value),
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                const SizedBox(
+                                  width: 104,
+                                  height: 28,
+                                  child: Image(
+                                    image: AssetImage(
+                                        'assets/Tofow-App-Logo-Inapp-Transparent.png'),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                const SizedBox(
+                                  width: 104,
+                                  child: Text(
+                                    'Version 0.1.0',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              );
-            },
-            child: pages[_index],
+              ),
+              // Main Content
+              AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  final slide = 280.0 * _animationController.value;
+                  final scale = 1.0 - (0.15 * _animationController.value);
+                  final radius = _animationController.value * 32.0;
+
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..translate(slide, 0.0, 0.0)
+                      ..scale(scale),
+                    alignment: Alignment.centerLeft,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(radius),
+                      child: Container(
+                        color: AppColors.background,
+                        child: IgnorePointer(
+                          ignoring: _animationController.value > 0.5,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: pages[_index],
+              ),
+            ],
           ),
-        ],
         ),
-      ),
       ),
     );
   }
@@ -201,79 +311,156 @@ class AppShellScope extends InheritedWidget {
   bool updateShouldNotify(AppShellScope oldWidget) => oldWidget.state != state;
 }
 
-class _DrawerItem extends StatelessWidget {
-  const _DrawerItem({required this.icon, required this.label, required this.selected, required this.onTap});
-  final IconData icon;
+class _DrawerSectionLabel extends StatelessWidget {
+  const _DrawerSectionLabel(this.label);
+
   final String label;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.1,
+          color: AppColors.textSecondary,
+        ),
+      );
+}
+
+class _DrawerItem extends StatefulWidget {
+  const _DrawerItem({
+    required this.animation,
+    required this.index,
+    required this.label,
+    required this.accent,
+    required this.gradient,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Animation<double> animation;
+  final int index;
+  final String label;
+  final Color accent;
+  final Gradient gradient;
   final bool selected;
   final VoidCallback onTap;
 
   @override
+  State<_DrawerItem> createState() => _DrawerItemState();
+}
+
+class _DrawerItemState extends State<_DrawerItem> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: InkWell(
-        onTap: onTap,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: Row(
-          children: [
-            Icon(icon, color: selected ? AppColors.action : AppColors.textSecondary, size: 22),
-            const SizedBox(width: 16),
-            Text(label, style: TextStyle(
-              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-              fontSize: 15,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            )),
-          ],
+    return AnimatedBuilder(
+      animation: widget.animation,
+      builder: (context, child) {
+        final start = widget.index * 0.055;
+        final progress =
+            ((widget.animation.value - start) / 0.48).clamp(0.0, 1.0);
+        final entrance = Curves.easeOutCubic.transform(progress);
+        return Opacity(
+          opacity: entrance,
+          child: Transform.translate(
+            offset: Offset(-14 * (1 - entrance), 0),
+            child: child,
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Semantics(
+          button: true,
+          selected: widget.selected,
+          label: widget.label,
+          child: AnimatedScale(
+            scale: _pressed ? 0.985 : 1,
+            duration: const Duration(milliseconds: 100),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onTap,
+                onHighlightChanged: (pressed) {
+                  if (_pressed != pressed) {
+                    setState(() => _pressed = pressed);
+                  }
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOut,
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  decoration: BoxDecoration(
+                    gradient: widget.selected ? widget.gradient : null,
+                    color: widget.selected
+                        ? null
+                        : (_pressed
+                            ? widget.accent.withValues(alpha: 0.12)
+                            : const Color(0xFFF4F0E8)),
+                    borderRadius: BorderRadius.circular(30),
+                    border: widget.selected
+                        ? null
+                        : Border.all(
+                            color: widget.accent.withValues(alpha: 0.24)),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 180),
+                    style: TextStyle(
+                      color: widget.selected
+                          ? (widget.accent == AppColors.decorNavy
+                              ? Colors.white
+                              : AppColors.textPrimary)
+                          : AppColors.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    child: Text(widget.label),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _SparklinePainter extends CustomPainter {
+class _DrawerWavePainter extends CustomPainter {
+  const _DrawerWavePainter(this.progress);
+
+  final double progress;
+
   @override
   void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, size.height * 0.65)
+      ..cubicTo(size.width * 0.12, size.height * 0.65, size.width * 0.12,
+          size.height * 0.25, size.width * 0.25, size.height * 0.35)
+      ..cubicTo(size.width * 0.39, size.height * 0.45, size.width * 0.4,
+          size.height * 0.95, size.width * 0.54, size.height * 0.72)
+      ..cubicTo(size.width * 0.68, size.height * 0.48, size.width * 0.67,
+          size.height * 0.12, size.width * 0.79, size.height * 0.25)
+      ..cubicTo(size.width * 0.9, size.height * 0.37, size.width * 0.9,
+          size.height * 0.78, size.width, size.height * 0.5);
+    final metric = path.computeMetrics().first;
+    final visiblePath = metric.extractPath(0, metric.length * progress);
     final paint = Paint()
       ..color = AppColors.action
-      ..strokeWidth = 2
       ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(0, size.height * 0.8)
-      ..lineTo(size.width * 0.2, size.height * 0.5)
-      ..lineTo(size.width * 0.4, size.height * 0.9)
-      ..lineTo(size.width * 0.6, size.height * 0.2)
-      ..lineTo(size.width * 0.8, size.height * 0.6)
-      ..lineTo(size.width, size.height * 0.1);
-    canvas.drawPath(path, paint);
+    canvas.drawPath(visiblePath, paint);
   }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DrawerWavePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
-
-class _VoidShaderPainter extends CustomPainter {
-  final ui.FragmentProgram program;
-  final double time;
-
-  _VoidShaderPainter(this.program, this.time);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final shader = program.fragmentShader();
-    shader.setFloat(0, size.width);
-    shader.setFloat(1, size.height);
-    shader.setFloat(2, time);
-
-    final paint = Paint()..shader = shader;
-    canvas.drawRect(Offset.zero & size, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _VoidShaderPainter oldDelegate) {
-    return oldDelegate.time != time;
-  }
-}
-
