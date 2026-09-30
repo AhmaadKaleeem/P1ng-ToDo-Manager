@@ -244,115 +244,50 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                             // Toolbar row
                             Row(
                               children: [
-                                // Pill back button
-                                GestureDetector(
+                                _ToolbarButton(
+                                  icon: Icons.arrow_back_rounded,
+                                  label: 'Back',
                                   onTap: () => Navigator.pop(context),
-                                  child: Container(
-                                    height: 34,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    reverse: true,
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(Icons.arrow_back_rounded,
-                                            size: 16, color: Colors.white),
-                                        SizedBox(width: 6),
-                                        Text('Back',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.white,
-                                            )),
+                                      children: [
+                                        _ToolbarButton(
+                                          icon: Icons.upload_file_rounded,
+                                          label: 'Import',
+                                          onTap: () =>
+                                              Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const RoadmapImportScreen()),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _ToolbarMenu(
+                                          onEdit: _editRoadmap,
+                                          onExportCsv: () =>
+                                              _exportRoadmap(false),
+                                          onExportExcel: () =>
+                                              _exportRoadmap(true),
+                                          onDelete: _confirmDeleteRoadmap,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _ToolbarButton(
+                                          icon: Icons.add_rounded,
+                                          label: 'Topic',
+                                          isPrimary: true,
+                                          accent: accent,
+                                          onTap: _showCreateTopicDialog,
+                                        ),
                                       ],
                                     ),
                                   ),
-                                ),
-                                const Spacer(),
-                                // Import
-                                _HeaderAction(
-                                  icon: Icons.upload_file_rounded,
-                                  label: 'Import',
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const RoadmapImportScreen(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                // Export
-                                PopupMenuButton<String>(
-                                  tooltip: 'Roadmap options',
-                                  color: AppColors.surface,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16)),
-                                  padding: EdgeInsets.zero,
-                                  onSelected: (action) {
-                                    switch (action) {
-                                      case 'csv':
-                                        _exportRoadmap(false);
-                                        break;
-                                      case 'excel':
-                                        _exportRoadmap(true);
-                                        break;
-                                      case 'edit':
-                                        _editRoadmap();
-                                        break;
-                                      case 'delete':
-                                        _confirmDeleteRoadmap();
-                                        break;
-                                    }
-                                  },
-                                  itemBuilder: (context) => const [
-                                    PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('Edit roadmap')),
-                                    PopupMenuItem(
-                                        value: 'csv',
-                                        child: Text('Export CSV')),
-                                    PopupMenuItem(
-                                        value: 'excel',
-                                        child: Text('Export Excel')),
-                                    PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('Delete roadmap')),
-                                  ],
-                                  child: Container(
-                                    height: 34,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(Icons.more_horiz_rounded,
-                                            size: 18, color: Colors.white),
-                                        SizedBox(width: 6),
-                                        Text('More',
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.white)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Add Topic
-                                _NewTopicButton(
-                                  roadmapId: _roadmap.id,
-                                  orderIndex: _topics.length,
-                                  onAdded: _loadData,
-                                  accent: accent,
                                 ),
                               ],
                             ),
@@ -406,11 +341,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                       ? TaskTimeView(roadmapId: _roadmap.id, topics: _topics)
                       : _topics.isEmpty
                           ? _EmptyRoadmap(
-                              onAddTopic: () => _NewTopicButton(
-                                roadmapId: _roadmap.id,
-                                orderIndex: 0,
-                                onAdded: _loadData,
-                              ).showCreateDialog(context),
+                              onAddTopic: _showCreateTopicDialog,
                             )
                           : Stack(
                               key: _pathKey,
@@ -500,6 +431,106 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                 const SliverToBoxAdapter(child: SizedBox(height: 60)),
               ],
             ),
+    );
+  }
+
+  void _showCreateTopicDialog() {
+    final titleCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      barrierColor: Colors.black26,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Accent top strip
+            Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: _roadmapAccent(_roadmap),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Add Topic',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.3)),
+                  const Text('A stage in this roadmap',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: titleCtrl,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(
+                        fontSize: 15, color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Topic name',
+                      filled: true,
+                      fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 15),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: _roadmapAccent(_roadmap), width: 1.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancel',
+                              style:
+                                  TextStyle(color: AppColors.textSecondary))),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () async {
+                          final title = titleCtrl.text.trim();
+                          if (title.isEmpty) return;
+                          await context.read<RoadmapController>().createTopic(
+                              roadmapId: _roadmap.id,
+                              title: title,
+                              orderIndex: _topics.length);
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          _loadData();
+                        },
+                        style: FilledButton.styleFrom(
+                            backgroundColor: _roadmapAccent(_roadmap),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12))),
+                        child: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -792,190 +823,118 @@ InputDecoration _planFieldDecoration(String label, Color accent) =>
       ),
     );
 
-class _NewTopicButton extends StatelessWidget {
-  const _NewTopicButton({
-    required this.roadmapId,
-    required this.orderIndex,
-    required this.onAdded,
-    this.accent = const Color(0xFF0EA5E9),
+class _ToolbarButton extends StatelessWidget {
+  const _ToolbarButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isPrimary = false,
+    this.accent,
   });
-  final String roadmapId;
-  final int orderIndex;
-  final VoidCallback onAdded;
-  final Color accent;
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isPrimary;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => showCreateDialog(context),
-      child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.add_rounded, size: 16, color: Colors.white),
-            SizedBox(width: 5),
-            Text('Topic',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
+    final bgColor =
+        isPrimary ? Colors.white : Colors.white.withValues(alpha: 0.15);
+    final fgColor =
+        isPrimary ? (accent ?? AppColors.textPrimary) : Colors.white;
 
-  void showCreateDialog(BuildContext context) {
-    final titleCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      barrierColor: Colors.black26,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Accent top strip
-            Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        height: 36,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: isPrimary
+              ? null
+              : Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          splashColor: fgColor.withValues(alpha: 0.15),
+          highlightColor: fgColor.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: fgColor),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: fgColor,
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Add Topic',
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                    letterSpacing: -0.3)),
-                            Text('A stage in this roadmap',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: titleCtrl,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(
-                        fontSize: 15, color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      hintText: 'Topic name',
-                      filled: true,
-                      fillColor: AppColors.background,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 15),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide:
-                              const BorderSide(color: AppColors.divider)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: accent, width: 1.5)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Spacer(),
-                      TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancel',
-                              style:
-                                  TextStyle(color: AppColors.textSecondary))),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final title = titleCtrl.text.trim();
-                          if (title.isEmpty) return;
-                          await context.read<RoadmapController>().createTopic(
-                              roadmapId: roadmapId,
-                              title: title,
-                              orderIndex: orderIndex);
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx);
-                          onAdded();
-                        },
-                        style: FilledButton.styleFrom(
-                            backgroundColor: accent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12))),
-                        child: const Text('Add'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Small pill action button used in the gradient header toolbar.
-class _HeaderAction extends StatelessWidget {
-  const _HeaderAction(
-      {required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+class _ToolbarMenu extends StatelessWidget {
+  const _ToolbarMenu({
+    required this.onExportCsv,
+    required this.onExportExcel,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final VoidCallback onExportCsv;
+  final VoidCallback onExportExcel;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
+  Widget build(BuildContext context) {
+    return _ToolbarButton(
+      icon: Icons.more_horiz_rounded,
+      label: 'More',
+      onTap: () {
+        final renderBox = context.findRenderObject() as RenderBox;
+        final offset = renderBox.localToGlobal(Offset.zero);
+        showMenu<String>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            offset.dx,
+            offset.dy + renderBox.size.height + 8,
+            MediaQuery.of(context).size.width -
+                offset.dx -
+                renderBox.size.width,
+            0,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 15, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white)),
-            ],
-          ),
-        ),
-      );
+          color: AppColors.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          items: const [
+            PopupMenuItem(value: 'edit', child: Text('Edit roadmap')),
+            PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+            PopupMenuItem(value: 'excel', child: Text('Export Excel')),
+            PopupMenuItem(value: 'delete', child: Text('Delete roadmap')),
+          ],
+        ).then((action) {
+          if (action == 'csv') onExportCsv();
+          if (action == 'excel') onExportExcel();
+          if (action == 'edit') onEdit();
+          if (action == 'delete') onDelete();
+        });
+      },
+    );
+  }
 }
 
 class _RoadmapProgress extends StatelessWidget {
