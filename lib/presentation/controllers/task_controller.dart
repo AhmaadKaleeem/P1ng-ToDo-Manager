@@ -42,16 +42,18 @@ class TaskController extends ChangeNotifier {
   bool _loading = false;
 
   List<Task> get tasks => List.unmodifiable(_allTasks);
-  List<Task> get visibleTasks => applyQuery(_allTasks, SearchQuery(text: _query, filter: _filter, sort: _sort));
-  
+  List<Task> get visibleTasks => applyQuery(
+      _allTasks, SearchQuery(text: _query, filter: _filter, sort: _sort));
+
   String get query => _query;
   TaskFilter get filter => _filter;
   TaskSort get sort => _sort;
   String? get error => _error;
   bool get loading => _loading;
 
-  List<Task> get inboxTasks =>
-      _allTasks.where((t) => t.status == TaskStatus.inbox).toList();
+  List<Task> get inboxTasks => _allTasks
+      .where((t) => t.status == TaskStatus.inbox && t.topicId == null)
+      .toList();
 
   List<Task> get activeTasks =>
       _allTasks.where((t) => t.status == TaskStatus.active).toList();
@@ -147,9 +149,13 @@ class TaskController extends ChangeNotifier {
     }
     final now = DateTime.now();
     final plan = reminderPlan ?? ReminderPresets.defaultPlan();
-    final int actualSortOrder = sortOrder ?? 
-        (_allTasks.isEmpty ? 0 : _allTasks.fold<int>(0, (max, t) => t.sortOrder > max ? t.sortOrder : max) + 1);
-        
+    final int actualSortOrder = sortOrder ??
+        (_allTasks.isEmpty
+            ? 0
+            : _allTasks.fold<int>(
+                    0, (max, t) => t.sortOrder > max ? t.sortOrder : max) +
+                1);
+
     final task = Task(
       id: _uuid.v4(),
       title: title.trim(),
@@ -223,10 +229,20 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> deleteTask(String id) async {
-    await _scheduler.cancelTaskReminders(id);
+    try {
+      await _scheduler.cancelTaskReminders(id);
+    } catch (error) {
+      debugPrint('Could not cancel reminders for deleted task $id: $error');
+    }
     await _repo.delete(id);
-    await _attachmentRepo.deleteByTask(id);
-    await _fileStorage.deleteTaskFolder(id);
+    _allTasks.removeWhere((task) => task.id == id);
+    notifyListeners();
+    try {
+      await _attachmentRepo.deleteByTask(id);
+      await _fileStorage.deleteTaskFolder(id);
+    } catch (error) {
+      debugPrint('Could not remove attachments for task $id: $error');
+    }
     await loadTasks();
   }
 
@@ -245,17 +261,19 @@ class TaskController extends ChangeNotifier {
   Future<void> duplicateTask(String id) async {
     final task = await _repo.getById(id);
     if (task == null) return;
-    
+
     final newTaskId = _uuid.v4();
     final now = DateTime.now();
-    
-    final clonedSubtasks = task.subtasks.map((s) => Subtask(
-      id: _uuid.v4(),
-      taskId: newTaskId,
-      title: s.title,
-      isCompleted: false,
-      sortOrder: s.sortOrder,
-    )).toList();
+
+    final clonedSubtasks = task.subtasks
+        .map((s) => Subtask(
+              id: _uuid.v4(),
+              taskId: newTaskId,
+              title: s.title,
+              isCompleted: false,
+              sortOrder: s.sortOrder,
+            ))
+        .toList();
 
     final clonedTask = Task(
       id: newTaskId,
@@ -270,7 +288,7 @@ class TaskController extends ChangeNotifier {
       category: task.category,
       tags: List.from(task.tags),
       subtasks: clonedSubtasks,
-      attachments: const [], 
+      attachments: const [],
       reminderPlan: task.reminderPlan,
       sourceType: task.sourceType,
       sourceId: task.sourceId,
@@ -307,28 +325,28 @@ class TaskController extends ChangeNotifier {
   Future<Map<String, int>> attachmentCounts(List<String> taskIds) =>
       _attachmentRepo.countsByTaskIds(taskIds);
 
-  Future<Attachment> attachFile(
-      String taskId, String sourcePath, String filename, String mimeType) async {
+  Future<Attachment> attachFile(String taskId, String sourcePath,
+      String filename, String mimeType) async {
     final file = File(sourcePath);
     final sizeBytes = await file.length();
-    
+
     validateAttachment(filename, sizeBytes);
 
     final attachmentId = _uuid.v4();
     final contentHash = await hashFile(sourcePath);
-    
+
     final dotIndex = filename.lastIndexOf('.');
-    final ext = (dotIndex != -1 && dotIndex < filename.length - 1) 
-        ? filename.substring(dotIndex).toLowerCase() 
+    final ext = (dotIndex != -1 && dotIndex < filename.length - 1)
+        ? filename.substring(dotIndex).toLowerCase()
         : '';
     await _fileStorage.save(taskId, attachmentId, sourcePath, ext);
-    
+
     if (mimeType.startsWith('image/')) {
       final thumbPath = _fileStorage.thumbnailPath(taskId, attachmentId);
       await Isolate.run(() => ThumbnailGenerator().generate(
-        sourcePath: sourcePath,
-        outputPath: thumbPath,
-      ));
+            sourcePath: sourcePath,
+            outputPath: thumbPath,
+          ));
     }
 
     final attachment = Attachment(
@@ -351,7 +369,7 @@ class TaskController extends ChangeNotifier {
   Future<void> removeAttachment(String attachmentId) async {
     final att = await _attachmentRepo.getById(attachmentId);
     if (att == null) return;
-    
+
     await _fileStorage.delete(att.taskId, att.id);
     await _attachmentRepo.delete(attachmentId);
     await loadTasks();
@@ -380,19 +398,20 @@ class TaskController extends ChangeNotifier {
     if (trimmedTitle.isEmpty) {
       throw ArgumentError('Title cannot be empty');
     }
-    
+
     final active = List.of(activeTasks);
     final index = active.indexWhere((t) => t.id == taskId);
     if (index == -1) return;
-    
+
     final newTask = await createTask(
       title: trimmedTitle,
       sortOrder: index + 1,
     );
-    
+
     for (int i = index + 1; i < active.length; i++) {
       if (active[i].id != newTask.id) {
-        await updateTask(active[i].copyWith(sortOrder: i + 1), skipReload: true);
+        await updateTask(active[i].copyWith(sortOrder: i + 1),
+            skipReload: true);
       }
     }
     await loadTasks();
@@ -406,4 +425,3 @@ class TaskValidationException implements Exception {
   @override
   String toString() => message;
 }
-

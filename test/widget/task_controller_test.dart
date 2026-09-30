@@ -23,13 +23,13 @@ class MockTaskRepository implements TaskRepository {
   Future<Task?> getById(String id) async => _tasks[id];
 
   @override
-  Future<List<Task>> getAll({TaskStatus? status, String? query, List<String>? tags}) async {
+  Future<List<Task>> getAll(
+      {TaskStatus? status, String? query, List<String>? tags}) async {
     var list = _tasks.values.toList();
     if (status != null) list = list.where((t) => t.status == status).toList();
     list.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return list;
   }
-
 
   @override
   Future<Task> update(Task task) async {
@@ -44,13 +44,15 @@ class MockTaskRepository implements TaskRepository {
 
   @override
   Future<List<ScheduledReminder>> getActiveReminders() async => [];
-  
+
   @override
-  Future<List<ScheduledReminder>> getRemindersForTask(String taskId) async => [];
-  
+  Future<List<ScheduledReminder>> getRemindersForTask(String taskId) async =>
+      [];
+
   @override
-  Future<void> saveReminders(String taskId, List<ScheduledReminder> reminders) async {}
-  
+  Future<void> saveReminders(
+      String taskId, List<ScheduledReminder> reminders) async {}
+
   @override
   Future<void> updateReminder(ScheduledReminder reminder) async {}
 }
@@ -66,7 +68,8 @@ class MockReminderScheduler implements ReminderScheduler {
   @override
   Future<void> rescheduleConstantReminder(Task task) async {}
   @override
-  Future<void> snoozeReminder(ScheduledReminder reminder, Duration duration) async {}
+  Future<void> snoozeReminder(
+      ScheduledReminder reminder, Duration duration) async {}
   @override
   Future<void> recoverPendingReminders() async {}
 }
@@ -79,8 +82,10 @@ class MockAttachmentRepository implements AttachmentRepository {
     _attachments[a.id] = a;
     return a;
   }
+
   @override
-  Future<List<Attachment>> getByTask(String taskId) async => _attachments.values.where((a) => a.taskId == taskId).toList();
+  Future<List<Attachment>> getByTask(String taskId) async =>
+      _attachments.values.where((a) => a.taskId == taskId).toList();
   @override
   Future<Attachment?> getById(String id) async => _attachments[id];
   @override
@@ -98,13 +103,16 @@ class MockAttachmentRepository implements AttachmentRepository {
       _attachments[id] = a.copyWith(filename: newFilename);
     }
   }
+
   @override
   Future<List<Attachment>> getAll() async => _attachments.values.toList();
 }
 
 class MockFileStorage implements FileStorage {
   @override
-  Future<String> save(String taskId, String attachmentId, String sourcePath, String extension) async => '';
+  Future<String> save(String taskId, String attachmentId, String sourcePath,
+          String extension) async =>
+      '';
   @override
   Future<void> delete(String taskId, String attachmentId) async {}
   @override
@@ -116,6 +124,33 @@ class MockFileStorage implements FileStorage {
 }
 
 void main() {
+  test('inbox excludes tasks assigned to roadmap topics', () async {
+    final repo = MockTaskRepository();
+    final now = DateTime(2026);
+    Task inboxTask(String id, {String? topicId}) => Task(
+          id: id,
+          title: id,
+          description: '',
+          status: TaskStatus.inbox,
+          priority: TaskPriority.medium,
+          createdAt: now,
+          updatedAt: now,
+          topicId: topicId,
+        );
+    await repo.create(inboxTask('inbox-task'));
+    await repo.create(inboxTask('roadmap-task', topicId: 'topic-1'));
+    final controller = TaskController(
+      repo,
+      MockReminderScheduler(),
+      MockAttachmentRepository(),
+      MockFileStorage(),
+    );
+
+    await controller.loadTasks();
+
+    expect(controller.inboxTasks.map((task) => task.id), ['inbox-task']);
+  });
+
   test('createTask persists its optional topic assignment', () async {
     final controller = TaskController(
       MockTaskRepository(),
@@ -132,18 +167,21 @@ void main() {
     expect(task.topicId, 'topic-1');
   });
 
-  test('duplicateTask creates a copy of the task with a new ID and active status', () async {
+  test(
+      'duplicateTask creates a copy of the task with a new ID and active status',
+      () async {
     final mockRepo = MockTaskRepository();
     final mockScheduler = MockReminderScheduler();
     final mockAttachments = MockAttachmentRepository();
     final mockFileStorage = MockFileStorage();
-    
-    final controller = TaskController(mockRepo, mockScheduler, mockAttachments, mockFileStorage);
-    
+
+    final controller = TaskController(
+        mockRepo, mockScheduler, mockAttachments, mockFileStorage);
+
     // Seed mock repo with original task
     final original = Task(
-      id: '1', 
-      title: 'Buy milk', 
+      id: '1',
+      title: 'Buy milk',
       description: '',
       status: TaskStatus.completed,
       priority: TaskPriority.high,
@@ -151,27 +189,38 @@ void main() {
       updatedAt: DateTime.now(),
       dueAt: DateTime(2025),
       subtasks: [
-        Subtask(id: 's1', taskId: '1', title: 'Go to store', isCompleted: true, sortOrder: 0)
+        Subtask(
+            id: 's1',
+            taskId: '1',
+            title: 'Go to store',
+            isCompleted: true,
+            sortOrder: 0)
       ],
-      reminderPlan: ReminderPlan(preset: ReminderPreset.normal, offsets: [], constantReminder: false),
+      reminderPlan: ReminderPlan(
+          preset: ReminderPreset.normal, offsets: [], constantReminder: false),
     );
     await mockRepo.create(original);
-    
+
     // Perform duplication
     await controller.duplicateTask('1');
-    
+
     // Verify results
     final tasks = await mockRepo.getAll();
     expect(tasks.length, 2, reason: 'A new task should be created');
-    
+
     final duplicate = tasks.firstWhere((t) => t.id != '1');
     expect(duplicate.title, 'Buy milk', reason: 'Title should match');
     expect(duplicate.dueAt, original.dueAt, reason: 'Due date should match');
-    expect(duplicate.priority, TaskPriority.high, reason: 'Priority should match');
-    expect(duplicate.isCompleted, false, reason: 'Status defaults to active (incomplete)');
+    expect(duplicate.priority, TaskPriority.high,
+        reason: 'Priority should match');
+    expect(duplicate.isCompleted, false,
+        reason: 'Status defaults to active (incomplete)');
     expect(duplicate.subtasks.length, 1, reason: 'Subtasks should be cloned');
-    expect(duplicate.subtasks.first.isCompleted, false, reason: 'Cloned subtasks are reset to incomplete');
-    expect(duplicate.subtasks.first.id, isNot('s1'), reason: 'Cloned subtasks have new IDs');
-    expect(duplicate.subtasks.first.taskId, duplicate.id, reason: 'Cloned subtasks point to new task ID');
+    expect(duplicate.subtasks.first.isCompleted, false,
+        reason: 'Cloned subtasks are reset to incomplete');
+    expect(duplicate.subtasks.first.id, isNot('s1'),
+        reason: 'Cloned subtasks have new IDs');
+    expect(duplicate.subtasks.first.taskId, duplicate.id,
+        reason: 'Cloned subtasks point to new task ID');
   });
 }

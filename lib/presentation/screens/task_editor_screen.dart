@@ -17,7 +17,12 @@ import 'package:todow/presentation/widgets/subtasks_section.dart';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const _kRoadmaps = ['Master Roadmap', 'Daily Tasks', 'Personal Notes'];
+const _kRoadmaps = [
+  'Master Roadmap',
+  'Daily Tasks',
+  'Personal Notes',
+  'Study',
+];
 
 const _priorityMeta = {
   TaskPriority.none:     (_PriorityMeta('None',     null,                  Color(0x00000000))),
