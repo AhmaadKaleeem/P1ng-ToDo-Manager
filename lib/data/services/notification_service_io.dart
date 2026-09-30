@@ -51,7 +51,13 @@ class NotificationServiceImpl implements NotificationService {
     if (Platform.isAndroid) {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      return await android?.requestNotificationsPermission() ?? false;
+      final notificationsAllowed =
+          await android?.requestNotificationsPermission() ?? false;
+      if (!notificationsAllowed) return false;
+      if (await android?.canScheduleExactNotifications() == false) {
+        await android?.requestExactAlarmsPermission();
+      }
+      return true;
     }
     if (Platform.isIOS) {
       final ios = _plugin.resolvePlatformSpecificImplementation<
@@ -119,25 +125,18 @@ class NotificationServiceImpl implements NotificationService {
               UILocalNotificationDateInterpretation.absoluteTime,
         );
       } catch (e) {
-        if (e.toString().contains('exact_alarms_not_permitted')) {
-          try {
-            await _plugin.zonedSchedule(
-              notificationId,
-              title,
-              isConstant ? '$body\nActive until completed' : body,
-              tz.TZDateTime.from(scheduledAt, tz.local),
-              details,
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-              payload: task.id,
-              uiLocalNotificationDateInterpretation:
-                  UILocalNotificationDateInterpretation.absoluteTime,
-            );
-          } catch (e2) {
-            debugPrint('Failed to schedule inexact fallback alarm: $e2');
-          }
-        } else {
-          debugPrint('Failed to schedule exact alarm: $e');
-        }
+        debugPrint('Failed to schedule exact reminder: $e');
+        await _plugin.zonedSchedule(
+          notificationId,
+          title,
+          isConstant ? '$body\nActive until completed' : body,
+          tz.TZDateTime.from(scheduledAt, tz.local),
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: task.id,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
       }
     }
     return notificationId;
