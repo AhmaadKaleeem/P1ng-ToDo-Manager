@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/package:path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
@@ -85,11 +87,10 @@ class _TimetableImportScreenState extends State<TimetableImportScreen> {
       });
       _ocrAttempts++;
       final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      late final String recognizedText;
+      late final RecognizedText recognizedText;
       try {
         recognizedText =
-            (await recognizer.processImage(InputImage.fromFilePath(image.path)))
-                .text;
+            await recognizer.processImage(InputImage.fromFilePath(image.path));
       } finally {
         await recognizer.close();
       }
@@ -131,20 +132,25 @@ class _TimetableImportScreenState extends State<TimetableImportScreen> {
     final bytes = Uint8List.fromList(utf8.encode(contents));
     setState(() => _loading = true);
     try {
-      if (kIsWeb ||
-          !{
-            TargetPlatform.android,
-            TargetPlatform.iOS,
-            TargetPlatform.macOS,
-          }.contains(defaultTargetPlatform)) {
+      if (kIsWeb) {
         await FileSaver.instance.saveFile(
           name: 'timetable-template',
           bytes: bytes,
           ext: 'csv',
           mimeType: MimeType.csv,
         );
-      } else {
+      } else if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/timetable-template.csv');
+        await tempFile.writeAsBytes(bytes);
         await FileSaver.instance.saveAs(
+          name: 'timetable-template',
+          filePath: tempFile.path,
+          ext: 'csv',
+          mimeType: MimeType.csv,
+        );
+      } else {
+        await FileSaver.instance.saveFile(
           name: 'timetable-template',
           bytes: bytes,
           ext: 'csv',

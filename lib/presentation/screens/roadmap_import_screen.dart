@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/package:path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap_import.dart';
@@ -95,24 +97,31 @@ class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
 
     setState(() => _loading = true);
     try {
-      final saved = kIsWeb ||
-              !{
-                TargetPlatform.android,
-                TargetPlatform.iOS,
-                TargetPlatform.macOS,
-              }.contains(defaultTargetPlatform)
+      final saved = kIsWeb
           ? await FileSaver.instance.saveFile(
               name: 'roadmap-template',
               bytes: bytes,
               ext: 'csv',
               mimeType: MimeType.csv,
             )
-          : await FileSaver.instance.saveAs(
-              name: 'roadmap-template',
-              bytes: bytes,
-              ext: 'csv',
-              mimeType: MimeType.csv,
-            );
+          : (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)
+              ? await () async {
+                  final tempDir = await getTemporaryDirectory();
+                  final tempFile = File('${tempDir.path}/roadmap-template.csv');
+                  await tempFile.writeAsBytes(bytes);
+                  return await FileSaver.instance.saveAs(
+                    name: 'roadmap-template',
+                    filePath: tempFile.path,
+                    ext: 'csv',
+                    mimeType: MimeType.csv,
+                  );
+                }()
+              : await FileSaver.instance.saveFile(
+                  name: 'roadmap-template',
+                  bytes: bytes,
+                  ext: 'csv',
+                  mimeType: MimeType.csv,
+                );
       if (!mounted || saved == null) return;
       _showTemplateMessage('CSV template downloaded.');
     } catch (_) {

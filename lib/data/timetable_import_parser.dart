@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/timetable_import.dart';
 import 'package:xml/xml.dart';
@@ -28,7 +29,7 @@ class TimetableImportParser {
     }
   }
 
-  TimetableImportDraft parseOcr(String text) {
+  TimetableImportDraft parseOcr(RecognizedText recognizedText) {
     final rows = <TimetableDraftEntry>[];
     final dayPattern = RegExp(
       r'\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b',
@@ -38,7 +39,37 @@ class TimetableImportParser {
       r'(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|–|—|to)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)',
       caseSensitive: false,
     );
-    for (final rawLine in text.split(RegExp(r'[\r\n]+'))) {
+
+    final lines = <TextLine>[];
+    for (final block in recognizedText.blocks) {
+      lines.addAll(block.lines);
+    }
+    
+    // Group lines horizontally if they are roughly on the same vertical level.
+    final rowStrings = <String>[];
+    if (lines.isNotEmpty) {
+      // Sort primarily by Y coordinate
+      lines.sort((a, b) => a.boundingBox.center.dy.compareTo(b.boundingBox.center.dy));
+
+      var currentRow = [lines.first];
+      for (var i = 1; i < lines.length; i++) {
+        final line = lines[i];
+        final avgY = currentRow.map((e) => e.boundingBox.center.dy).reduce((a, b) => a + b) / currentRow.length;
+        if ((line.boundingBox.center.dy - avgY).abs() < 25) { // Vertical tolerance
+          currentRow.add(line);
+        } else {
+          currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+          rowStrings.add(currentRow.map((e) => e.text).join(' '));
+          currentRow = [line];
+        }
+      }
+      if (currentRow.isNotEmpty) {
+        currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+        rowStrings.add(currentRow.map((e) => e.text).join(' '));
+      }
+    }
+
+    for (final rawLine in rowStrings) {
       final line = rawLine.trim();
       final dayMatch = dayPattern.firstMatch(line);
       final timeMatch = timeRangePattern.firstMatch(line);

@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isFilterExpanded = false;
   final _searchCtrl = TextEditingController();
   String? _username;
+  int _taskLimit = 10;
 
   @override
   void initState() {
@@ -356,12 +357,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final tc = context.watch<TaskController>();
     final timetable = context.watch<TimetableController>();
-    final visibleTasks =
-        tc.visibleTasks.where((task) => task.topicId == null).toList();
-    final active =
-        visibleTasks.where((t) => t.status == TaskStatus.active).toList();
+    final allActive =
+        tc.visibleTasks.where((t) => t.status == TaskStatus.active).toList();
+    final active = allActive.take(_taskLimit).toList();
     final allCompleted = applyQuery(
-        tc.tasks.where((task) => task.topicId == null).toList(),
+        tc.tasks,
         SearchQuery(
             text: tc.query,
             filter: tc.filter.copyWith(status: TaskStatusFilter.completed),
@@ -565,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         children: [
                           const Expanded(
-                              child: Text('TASKS',
+                              child: Text('ALL TASKS',
                                   style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -808,6 +808,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           .slideY(begin: 0.3, curve: Curves.easeOutBack),
                     ),
                   ),
+                  if (!tc.loading && allActive.length > _taskLimit)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _taskLimit += 10;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: AppColors.divider),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Load 10 more tasks', style: TextStyle(color: AppColors.action)),
+                        ),
+                      ),
+                    ),
                   if (!tc.loading && done.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
