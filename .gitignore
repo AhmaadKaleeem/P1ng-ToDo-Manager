@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+.hedgehog/graph-server.json
+.hedgehog/hedgehog.db
+.hedgehog/hedgehog.db-*
+.hedgehog/commit.lock
