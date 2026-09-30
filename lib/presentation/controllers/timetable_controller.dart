@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
+import 'package:todow/domain/models/timetable_import.dart';
 import 'package:todow/domain/repositories/timetable_repository.dart';
 import 'package:uuid/uuid.dart';
 
@@ -31,8 +32,17 @@ class TimetableController extends ChangeNotifier {
     }
   }
 
-  List<TimetableEntry> forDay(Weekday weekday) =>
-      _entries.where((entry) => entry.weekday == weekday).toList()
+  List<TimetableEntry> entriesFor(TimetableKind scheduleKind) =>
+      _entries.where((entry) => entry.scheduleKind == scheduleKind).toList();
+
+  List<TimetableEntry> forDay(
+    Weekday weekday, {
+    TimetableKind scheduleKind = TimetableKind.university,
+  }) =>
+      _entries
+          .where((entry) =>
+              entry.weekday == weekday && entry.scheduleKind == scheduleKind)
+          .toList()
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
   Future<void> add({
@@ -41,14 +51,14 @@ class TimetableController extends ChangeNotifier {
     required Weekday weekday,
     required DateTime startTime,
     required DateTime endTime,
+    TimetableKind scheduleKind = TimetableKind.university,
     String? room,
+    DateTime? scheduledDate,
+    bool repeatWeekly = true,
+    String? taskId,
+    String? category,
   }) async {
-    if (courseName.trim().isEmpty) {
-      throw TimetableValidationException('Course name is required.');
-    }
-    if (!endTime.isAfter(startTime)) {
-      throw TimetableValidationException('End time must be after start time.');
-    }
+    _validate(courseName, startTime, endTime);
     await _repository.create(
       TimetableEntry(
         id: _uuid.v4(),
@@ -57,7 +67,12 @@ class TimetableController extends ChangeNotifier {
         weekday: weekday,
         startTime: startTime,
         endTime: endTime,
+        scheduleKind: scheduleKind,
         room: room?.trim().isEmpty == true ? null : room?.trim(),
+        scheduledDate: scheduledDate,
+        repeatWeekly: repeatWeekly,
+        taskId: taskId,
+        category: category,
       ),
     );
     await load();
@@ -69,14 +84,35 @@ class TimetableController extends ChangeNotifier {
   }
 
   Future<void> update(TimetableEntry entry) async {
-    if (entry.courseName.trim().isEmpty) {
-      throw TimetableValidationException('Course name is required.');
-    }
-    if (!entry.endTime.isAfter(entry.startTime)) {
-      throw TimetableValidationException('End time must be after start time.');
-    }
+    _validate(entry.courseName, entry.startTime, entry.endTime);
     await _repository.update(entry);
     await load();
+  }
+
+  Future<void> importEntries(
+    List<TimetableDraftEntry> draft,
+    TimetableKind scheduleKind,
+  ) async {
+    if (draft.isEmpty) {
+      throw TimetableValidationException('Add at least one class to import.');
+    }
+    for (final row in draft) {
+      final error = row.validationError;
+      if (error != null) throw TimetableValidationException(error);
+    }
+    final entries =
+        draft.map((row) => row.toEntry(scheduleKind, _uuid.v4())).toList();
+    await _repository.createMany(entries);
+    await load();
+  }
+
+  void _validate(String courseName, DateTime startTime, DateTime endTime) {
+    if (courseName.trim().isEmpty) {
+      throw TimetableValidationException('Course name is required.');
+    }
+    if (!endTime.isAfter(startTime)) {
+      throw TimetableValidationException('End time must be after start time.');
+    }
   }
 }
 

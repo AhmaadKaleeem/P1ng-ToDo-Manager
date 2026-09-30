@@ -60,14 +60,14 @@ The Home screen keeps its three summary cards at the top, then brings today's du
 Task-linked sessions, timer, pause/resume/end, presets, basic distraction controls.
 
 ### FR-09, FR-10, FR-11 Timetable
-Classes are personal recurring weekly entries. Choose a weekday to review, edit, add, or remove its classes; changing one weekday does not change another. The Home screen uses these same entries for today's schedule.
-Timetable import follows Upload or Extract → Draft → Review/Edit → Confirm → Persist. Confirmed manual and import data should use the same timetable entry model so the weekly schedule stays consistent.
+Keep University classes and Personal plans separate. University entries repeat weekly by default. Personal is an independent planner for weekly activities and one-time dated events; users can copy university classes into it, then edit or delete those copies without changing the University schedule. Personal items can link to existing tasks, tasks (including roadmap tasks) can be placed on the personal timetable, and activities can create linked tasks. Switch between a full week and one day, return to today, and edit or remove entries. Today's Home view highlights the current or next University class.
+Add classes by hand or import CSV and Excel. Check and edit every imported row before confirming; Todow saves the confirmed set in one local transaction. Scan an image from the camera or gallery to create an editable draft. Course, day, and time are read from the image when clear; review the instructor and room as well before saving. If three scans cannot read it, switch to CSV or Excel, or copy a prompt to ask an external AI assistant to format the image. That optional step stays outside Todow, and the resulting file is still reviewed here before it is saved.
 
 ### FR-12 & FR-13 Roadmaps
 Roadmaps turn long-term work into a clear route through ordered Topics. Alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Expand tasks in one Topic at a time to keep the route focused, or switch to By date to browse today's, this week's, upcoming, all scheduled work, a custom date range, or selected days grouped under their Topic. Edit a Roadmap from its card options or its detail menu; rename a Topic from its options. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, add a task directly to a stage, or delete it from the stage. Delete a Topic from its options; its tasks remain safely in Todow, detached but intact. Create a Roadmap by hand or import or export it as CSV or Excel. The import screen provides a downloadable CSV sample with multiple Topics and tasks. Replace its example rows or omit optional columns such as descriptions, due dates, priority, status, and reminders. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Reorder Roadmaps with the drag handle or move controls. Delete a Roadmap from its options menu; its tasks remain safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
 
 ## CSV Specification
-**Timetable CSV Columns**: `course,instructor,day,start_time,end_time,room`
+**Timetable CSV and Excel Columns**: `course,instructor,day,start_time,end_time,room`. Use one row per class and a weekday name or abbreviation.
 **Roadmap CSV and Excel Columns**: `roadmap_title,roadmap_description,topic_title,topic_description,topic_order,topic_status,task_title,task_description,due_date,due_time,priority,task_status,reminder`
 
 ## Non-Functional Requirements
@@ -80,5 +80,5 @@ Roadmaps turn long-term work into a clear route through ordered Topics. Alternat
 - Tasks survive app restart, can be edited/completed. Subtasks work independently.
 - Multiple reminders calculate timestamps correctly. Completing task cancels pending. Snoozing/Constant Reminder persist state.
 - Focus sessions persist state.
-- Timetable CSV/OCR produces editable draft. Not persisted before confirmation.
+- Timetable CSV/Excel/OCR produces an editable draft. Nothing is persisted before confirmation, and confirmed rows are saved in one SQLite transaction.
 - Roadmaps, topics, and task assignments remain available after restart.

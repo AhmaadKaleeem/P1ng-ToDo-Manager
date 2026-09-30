@@ -30,7 +30,7 @@ Data / Infrastructure (Repositories / SQLite / Drift / Notifications)
 - **Task**: Contains Subtasks, Attachments, Reminders, Focus Sessions.
 - **Reminder**: Contains `taskId`, `scheduledAt`, `status`, `snoozeUntil`.
 - **FocusSession**: Task-linked duration session.
-- **TimetableEntry / TimetableImportDraft**: Represents schedules. Drafts are temporary for CSV/OCR.
+- **TimetableEntry / TimetableDraftEntry**: A University class or Personal activity. Entries store schedule scope, recurrence/date, and an optional task link. CSV, Excel, and OCR drafts stay in presentation memory until validated and confirmed; one repository transaction persists a confirmed batch.
 - **Roadmap / Milestone**: Long-term goal tracking.
 
 ## System Diagram

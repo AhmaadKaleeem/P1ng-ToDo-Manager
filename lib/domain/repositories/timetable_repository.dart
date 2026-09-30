@@ -3,8 +3,12 @@ import 'package:todow/domain/models/timetable_entry.dart';
 
 abstract class TimetableRepository {
   Future<List<TimetableEntry>> getAll();
-  Future<List<TimetableEntry>> forWeekday(Weekday weekday);
+  Future<List<TimetableEntry>> forWeekday(
+    Weekday weekday, {
+    TimetableKind scheduleKind = TimetableKind.university,
+  });
   Future<TimetableEntry> create(TimetableEntry entry);
+  Future<void> createMany(List<TimetableEntry> entries);
   Future<TimetableEntry> update(TimetableEntry entry);
   Future<void> delete(String id);
 }

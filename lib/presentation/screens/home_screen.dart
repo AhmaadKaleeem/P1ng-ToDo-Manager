@@ -90,6 +90,8 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: AppColors.decorPink.withValues(alpha: 0.28)),
               boxShadow: const [_softShadow]),
           child: tasks.isEmpty
               ? const Padding(
@@ -138,7 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _todayClasses(TimetableController controller) {
     final now = DateTime.now();
     final weekday = WeekdayExt.fromDartWeekday(now.weekday);
-    final classes = controller.forDay(weekday);
+    final classes = controller.forDay(
+      weekday,
+      scheduleKind: TimetableKind.university,
+    );
     var highlighted = -1;
     for (var i = 0; i < classes.length; i++) {
       final entry = classes[i];
@@ -164,6 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
+              border:
+                  Border.all(color: AppColors.action.withValues(alpha: 0.28)),
               boxShadow: const [_softShadow]),
           child: classes.isEmpty
               ? Padding(
@@ -1814,7 +1821,10 @@ class _TodayClassRow extends StatelessWidget {
         now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     final current = !now.isBefore(start) && now.isBefore(end);
     return Material(
-      color: primary ? AppColors.surfaceElevated : AppColors.surface,
+      color: primary
+          ? Color.alphaBlend(
+              AppColors.action.withValues(alpha: 0.09), AppColors.surface)
+          : AppColors.surface,
       child: InkWell(
         onTap: onTap,
         child: Padding(

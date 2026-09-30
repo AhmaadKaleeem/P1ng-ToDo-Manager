@@ -11,6 +11,7 @@ import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/reminders/reminder_presets.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:todow/presentation/widgets/attachments_section.dart';
 import 'package:todow/presentation/widgets/reminders_section.dart';
 import 'package:todow/presentation/widgets/subtasks_section.dart';
@@ -211,6 +212,70 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     return task;
   }
 
+  Future<void> _addToPersonalTimetable() async {
+    if (_title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Add a task name before scheduling it.'),
+      ));
+      return;
+    }
+    final date = _dueAt ?? await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (time == null || !mounted) return;
+    final taskController = context.read<TaskController>();
+    final task = _workingTask == null
+        ? await _autoSave()
+        : await taskController.updateTask(
+            _workingTask!.copyWith(
+              title: _title.text.trim(),
+              description: _notes.text.trim(),
+              priority: _priority,
+              dueAt: _dueAt,
+              clearDueAt: _dueAt == null,
+              category: _isRoadmapTask ? null : _selectedRoadmap,
+              topicId: widget.topicId,
+              subtasks: _subtasks,
+              reminderPlan: _reminderPlan,
+            ),
+          );
+    if (!mounted) return;
+    setState(() => _workingTask = task);
+    final timetable = context.read<TimetableController>();
+    if (timetable.entries.any((entry) => entry.taskId == task.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This task is already on your personal timetable.'),
+      ));
+      return;
+    }
+    final start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    await timetable.add(
+      courseName: task.title,
+      instructor: task.description,
+      weekday: WeekdayExt.fromDartWeekday(date.weekday),
+      startTime: start,
+      endTime: start.add(const Duration(hours: 1)),
+      scheduleKind: TimetableKind.personal,
+      scheduledDate: date,
+      repeatWeekly: false,
+      category: task.topicId == null ? 'Task' : 'Roadmap',
+      taskId: task.id,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Task added to your personal timetable.'),
+      ));
+    }
+  }
+
   void _save() {
     if (_title.text.trim().isNotEmpty) {
       final tc = context.read<TaskController>();
@@ -375,6 +440,22 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                           topic: _roadmapTopic?.title ?? 'Loading Topic…',
                         ),
                       ),
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+                      child: OutlinedButton.icon(
+                        onPressed: _addToPersonalTimetable,
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        label: const Text('Add to personal timetable'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.decorNavy,
+                          backgroundColor: AppColors.surface,
+                          side: const BorderSide(color: Color(0xFFD6DDF0)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
 
                     const SizedBox(height: 28),
 

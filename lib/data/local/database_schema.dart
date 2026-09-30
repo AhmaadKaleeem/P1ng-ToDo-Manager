@@ -37,7 +37,9 @@ Future<void> createDatabaseSchema(Database db, int version) async {
   await db.execute('''CREATE TABLE timetable_entries (
     id TEXT PRIMARY KEY, course_name TEXT NOT NULL, instructor TEXT NOT NULL,
     weekday INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL,
-    room TEXT, color_value INTEGER, category TEXT)''');
+    room TEXT, color_value INTEGER, category TEXT,
+    schedule_kind TEXT NOT NULL DEFAULT 'university', scheduled_date TEXT,
+    repeat_weekly INTEGER NOT NULL DEFAULT 1, task_id TEXT)''');
   await db.execute('''CREATE TABLE focus_sessions (
     id TEXT PRIMARY KEY, task_id TEXT, task_title TEXT NOT NULL,
     preset TEXT NOT NULL, planned_seconds INTEGER NOT NULL,
@@ -130,5 +132,16 @@ Future<void> upgradeDatabaseSchema(
   if (oldVersion < 6) {
     await db.execute(
         'ALTER TABLE roadmaps ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0');
+  }
+  if (oldVersion < 7) {
+    await db.execute(
+        "ALTER TABLE timetable_entries ADD COLUMN schedule_kind TEXT NOT NULL DEFAULT 'university'");
+  }
+  if (oldVersion < 8) {
+    await db.execute(
+        'ALTER TABLE timetable_entries ADD COLUMN scheduled_date TEXT');
+    await db.execute(
+        'ALTER TABLE timetable_entries ADD COLUMN repeat_weekly INTEGER NOT NULL DEFAULT 1');
+    await db.execute('ALTER TABLE timetable_entries ADD COLUMN task_id TEXT');
   }
 }

@@ -27,8 +27,8 @@ All three are centered at `Offset(0, 0)`, sweep angle 90° (π/2 radians), start
 **Home screen variant:** same radii (200, 135, 75), centered at `Offset(screenWidth, 0)`, sweep start angle π (pointing left), centered at top-right.
 
 **Hard rules:**
-- No radial or linear gradients anywhere in the presentation layer.
-- Corner decor uses only the specified solid fills.
+- Gradients may identify selected pills and category cards when they improve recognition, using colors already in the Todow palette.
+- Do not use gradients for page backgrounds or corner decor; corner decor uses only the specified solid fills.
 
 ### Four-Plane Hierarchy
 
@@ -81,7 +81,7 @@ Applied to: hero card, secondary cards, task rows block, quick add, nav pill.
 - Solid Amber #F59E0B = attention (progress bars, streaks)
 - Cycle Navy → Pink → Coral = roadmap pills, corner decor accents
 
-Never mix. Gradients are prohibited. An amber button is a bug. A gradient on any element is a bug.
+Keep solid role colors for actions and attention. Restrained gradients may blend existing accent colors on selected navigation and category cards. An amber button is a bug; large gradient backgrounds are a bug.
 
 ## Component Patterns
 
@@ -98,7 +98,9 @@ Keep the Roadmap and By date switch compact at 36dp tall, with the active choice
 - **Quick Add**: White surface, soft shadow, borderless text field.
 - **Today's Work**: Preserve the top summary cards. Follow them with due-today tasks sorted by due time. Show up to three compact rows before a View all tasks action; completing a row updates it immediately.
 - **Today's Classes**: Follow Today's Work with a compact white card of every class for the current weekday, ordered by start time. Mark the active class or the next upcoming class with Azure and a short NOW/NEXT label. Constrain the card's height and allow its list to scroll internally; keep View timetable visible below it. With no classes, show a single-line empty state and View timetable action.
-- **Weekly Timetable**: Default to the current weekday, with small weekday pills for the remaining schedule. Explain that classes repeat weekly. Each class row opens editing and keeps edit and delete actions visible; deletion names the weekday so recurring removal is clear.
+- **Timetable**: Separate University and Personal schedules with compact selected-state pills. Keep a Week/Day switch, previous/next navigation, a visible Today shortcut, and a clear back action. University classes repeat weekly. Personal supports repeating activities and one-time dated events, with optional links to tasks. Copying University entries creates independent Personal entries. Use restrained Azure and navy cues for University; use the existing pink, coral, amber, and navy palette to distinguish Personal activity types. Keep labels and time metadata high contrast. Rows show title, type, place/details, and start/end time; mark the current or next item. Add, edit, and delete actions name their effect on the selected schedule.
+- **Timetable Import**: Present CSV, Excel, camera, and gallery choices in the same cream and white card language. Keep the selected schedule visible through import. Review every class in an editable draft before confirmation; use field-level errors for missing course, weekday, or times. Confirmation is the only action that saves imported rows.
+- **OCR Recovery**: After the first failed scan, offer Scan again. After the second, offer Scan again and Choose another image. After the third, offer Try another image and Import CSV / Excel. Include the optional Copy CSV extraction prompt and make clear that an external assistant is outside Todow.
 
 ### Task Editor
 - **Header**: "New task" 34/w800/-0.8/textPrimary + Amber underline.

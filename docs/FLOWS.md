@@ -39,19 +39,19 @@ The scheduler must be reconstructable from persistent state. On application star
 ![Timetable Sequence](../assets/Timetable%20sequence%20diagram.png)
 
 ```text
-TIMETABLE INPUT (Manual / CSV / OCR Image)
+UNIVERSITY OR PERSONAL SCHEDULE
       ↓
-Parser / Extraction
+Manual entry OR CSV / Excel parser OR camera / gallery OCR
       ↓
-Timetable Draft
+Editable timetable draft
       ↓
-Review / Edit by User
+Review course, instructor, room, weekday, start and end time
       ↓
-Validation
+Validate every row
       ↓
 Confirm
       ↓
-Persistence (SQLite)
+Persist the full import in one SQLite transaction
 ```
 
-Ambiguous OCR/CSV data should be surfaced to the user. Nothing is saved until confirmed.
+University manual entries use a recurring weekly model. Personal entries can repeat weekly or use a selected date and can link to an existing task. Copying university classes makes independent personal entries. Tasks, including roadmap tasks, can be scheduled into Personal; a personal activity can create its linked task. CSV and Excel imports use the columns `course,instructor,day,start_time,end_time,room` and parse deterministically. OCR tries up to three scans for an image; after the third failure the user can try a different image, import CSV/Excel, or copy an optional prompt for an external assistant. No import writes to SQLite before confirmation. If any confirmed row fails to save, the transaction rolls back the whole import.

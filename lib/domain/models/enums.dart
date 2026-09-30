@@ -16,6 +16,8 @@ enum FocusSessionStatus { idle, running, paused, ended }
 
 enum Weekday { monday, tuesday, wednesday, thursday, friday, saturday, sunday }
 
+enum TimetableKind { university, personal }
+
 extension WeekdayExt on Weekday {
   int get dartWeekday => index + 1;
 
