@@ -2,7 +2,7 @@
 
 ## Art Direction
 
-> Todow is a warm light task canvas. A clean cream background floats solid white cards with soft shadows. Action is driven by Azure; attention is driven by Amber. Gradients are prohibited on backgrounds, decor arcs, and standard UI elements. **Exception:** Roadmap summary cards use curated linear gradients (Azure → Amber) as visual landmarks — they enhance scanability and create clear hierarchy against the neutral canvas. The corner arc decor uses specific solid colors layered over the background.
+> Todow is a warm light task canvas. A clean cream background floats solid white cards with soft shadows. Action is driven by Azure; attention is driven by Amber. Gradients are prohibited on backgrounds and decor arcs. **Exceptions:** Roadmap summary cards use curated gradients as visual landmarks, and the selected navigation pill uses a restrained destination gradient for clear active-state recognition. The corner arc decor uses specific solid colors layered over the background.
 
 This sentence is the app's visual contract. Every screen must be auditable against it.
 
@@ -84,6 +84,12 @@ Applied to: hero card, secondary cards, task rows block, quick add, nav pill.
 Never mix. Gradients are prohibited. An amber button is a bug. A gradient on any element is a bug.
 
 ## Component Patterns
+
+### Navigation Drawer
+Keep the drawer on the warm cream canvas. Show the saved profile name beneath the pink-ringed avatar, then group icon-free navigation pills under `MAIN` and `PLAN`. Each pill is 50dp tall with a fully rounded radius and 10dp spacing. Give each destination a stable accent identity: Home Azure, Tasks Pink, Focus Amber, Timetable Coral, and Roadmaps Navy. The selected pill uses a destination-specific gradient echoed from Home's category cards, with a high-contrast label; inactive pills keep a warm neutral fill with a restrained accent outline. A short Azure wave draws in beneath the groups as the drawer opens, followed by the Todow in-app wordmark and version.
+
+### Roadmap Controls
+Keep the Roadmap and By date switch compact at 36dp tall, with the active choice filled in the roadmap's accent or Azure. Topic and Roadmap editing uses the cream dialog surface, clear labels, accent focus state, and small rounded Save and Cancel actions. The Add Topic heading stays text-first without a decorative icon.
 
 ### Home Screen
 - **Hero Card**: White surface, soft shadow. Category chip top-right (Navy). Amber progress bar.

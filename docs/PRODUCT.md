@@ -32,6 +32,9 @@ Double tap the space between any two tasks to drop a text field exactly there. T
 Splash screen skip
 Returning users see a personalized greeting and can tap a single button to skip the animation. You get straight to your task list without waiting. New users get a smooth introduction that asks for their name right away so they feel at home.
 
+Navigation drawer
+Swipe right to open the cream navigation drawer and jump to Home, Tasks, Focus, Timetable, or Roadmaps. Each compact rounded pill keeps its own color identity, with a soft destination gradient on the selected section. A small Azure wave draws in below the menu, followed by the Todow in-app wordmark and version.
+
 
 
 ### FR-02 Attachments
@@ -50,6 +53,7 @@ When enabled, continues reminding according to repeat policy until completed, sn
 
 ### FR-07 Today
 Aggregates overdue, today's, upcoming, active reminders, timetable entries, and active focus. Not an analytics dashboard.
+Home highlights the two categories with the most tasks and shows completed and total counts. Create a task in Daily Tasks or another category and its card appears automatically, so the home overview reflects the work you actually have. Personal Notes and Study fill empty slots when fewer than two task categories have tasks; Inbox and roadmap tasks are excluded.
 
 ### FR-08 Focus Mode
 Task-linked sessions, timer, pause/resume/end, presets, basic distraction controls.
@@ -59,7 +63,7 @@ Manual entry, CSV import, OCR image import.
 Flow: Upload/Extract → Draft → Review/Edit → Confirm → Persist.
 
 ### FR-12 & FR-13 Roadmaps
-Roadmaps turn long-term work into a clear route through ordered Topics. Large, alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, or add a task directly to a stage. Time filters retain the Topic name, keeping scheduled work connected to the larger plan. Topic status is controlled directly, while task progress is calculated from completed work. Create a Roadmap by hand or import or export it as CSV or Excel. The import screen provides a downloadable CSV sample with multiple Topics and tasks. Replace its example rows or omit optional columns such as descriptions, due dates, priority, status, and reminders. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Reorder Roadmaps with the drag handle or move controls. Delete a Roadmap from its options menu; its tasks remain safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
+Roadmaps turn long-term work into a clear route through ordered Topics. Alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Expand tasks in one Topic at a time to keep the route focused, or switch to By date to browse today's, this week's, upcoming, all scheduled work, a custom date range, or selected days grouped under their Topic. Edit a Roadmap from its card options or its detail menu; rename a Topic from its options. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, add a task directly to a stage, or delete it from the stage. Delete a Topic from its options; its tasks remain safely in Todow, detached but intact. Create a Roadmap by hand or import or export it as CSV or Excel. The import screen provides a downloadable CSV sample with multiple Topics and tasks. Replace its example rows or omit optional columns such as descriptions, due dates, priority, status, and reminders. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Reorder Roadmaps with the drag handle or move controls. Delete a Roadmap from its options menu; its tasks remain safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.
 
 ## CSV Specification
 **Timetable CSV Columns**: `course,instructor,day,start_time,end_time,room`
