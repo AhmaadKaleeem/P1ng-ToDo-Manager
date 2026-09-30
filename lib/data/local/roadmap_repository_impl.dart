@@ -67,6 +67,7 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
           whereArgs: [topic['id']],
         );
       }
+      await txn.delete('topics', where: 'roadmap_id = ?', whereArgs: [id]);
       await txn.delete('roadmaps', where: 'id = ?', whereArgs: [id]);
     });
   }

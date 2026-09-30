@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 
@@ -15,9 +14,18 @@ const _kCompletedWidthFactor = 0.76;
 
 // Inline palette — mirrors roadmap_list_screen palette exactly.
 const _kCardPalette = [
-  Color(0xFF1E3A8A), Color(0xFF0EA5E9), Color(0xFF0D9488), Color(0xFF059669),
-  Color(0xFFF59E0B), Color(0xFFFB7185), Color(0xFFF472B6), Color(0xFF7C3AED),
-  Color(0xFF4F46E5), Color(0xFFEF4444), Color(0xFF475569), Color(0xFFF59E0B),
+  Color(0xFF1E3A8A),
+  Color(0xFF0EA5E9),
+  Color(0xFF0D9488),
+  Color(0xFF059669),
+  Color(0xFFF59E0B),
+  Color(0xFFFB7185),
+  Color(0xFFF472B6),
+  Color(0xFF7C3AED),
+  Color(0xFF4F46E5),
+  Color(0xFFEF4444),
+  Color(0xFF475569),
+  Color(0xFFF59E0B),
 ];
 
 Color _accentFromRoadmap(Roadmap r) {
@@ -31,8 +39,8 @@ Color _accentFromRoadmap(Roadmap r) {
 Color _lighten(Color c, double amt) => Color.lerp(c, Colors.white, amt)!;
 
 /// Darkens an accent slightly.
-Color _darken(Color c, double amt) => Color.lerp(c, Colors.black, amt)!
-    .withValues(alpha: c.a);
+Color _darken(Color c, double amt) =>
+    Color.lerp(c, Colors.black, amt)!.withValues(alpha: c.a);
 
 class TopicCard extends StatefulWidget {
   const TopicCard({
@@ -41,7 +49,11 @@ class TopicCard extends StatefulWidget {
     required this.index,
     required this.onStatusChanged,
     required this.onTasksChanged,
-    required this.onGeometryChanged,
+    required this.onEdit,
+    required this.onDelete,
+    required this.tasks,
+    required this.tasksExpanded,
+    required this.onTasksExpanded,
     required this.cardKey,
     super.key,
   });
@@ -51,7 +63,11 @@ class TopicCard extends StatefulWidget {
   final int index;
   final ValueChanged<TopicStatus> onStatusChanged;
   final VoidCallback onTasksChanged;
-  final VoidCallback onGeometryChanged;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final List<Task> tasks;
+  final bool tasksExpanded;
+  final ValueChanged<bool> onTasksExpanded;
   final GlobalKey cardKey;
 
   @override
@@ -59,37 +75,13 @@ class TopicCard extends StatefulWidget {
 }
 
 class _TopicCardState extends State<TopicCard> {
-  List<Task> _tasks = const [];
-  bool _tasksExpanded = false;
+  int get _completed => widget.tasks.where((t) => t.isCompleted).length;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadTasks();
+  double get _progress {
+    if (widget.topic.status == TopicStatus.completed) return 1;
+    if (widget.tasks.isEmpty) return 0;
+    return _completed / widget.tasks.length;
   }
-
-  @override
-  void didUpdateWidget(TopicCard old) {
-    super.didUpdateWidget(old);
-    if (old.topic.id != widget.topic.id) _loadTasks();
-  }
-
-  Future<void> _loadTasks() async {
-    final tasks =
-        await context.read<RoadmapController>().getTasksByTopic(widget.topic.id);
-    if (!mounted) return;
-    setState(() => _tasks = tasks);
-    widget.onGeometryChanged();
-  }
-
-  int get _completed => _tasks.where((t) => t.isCompleted).length;
-
-  double get _progress =>
-      widget.topic.status == TopicStatus.completed
-          ? 1.0
-          : _tasks.isEmpty
-              ? 0.0
-              : _completed / _tasks.length;
 
   @override
   Widget build(BuildContext context) {
@@ -119,36 +111,40 @@ class _TopicCardState extends State<TopicCard> {
                 TopicStatus.active => _ActiveNode(
                     key: ValueKey('active-${widget.topic.id}'),
                     topic: widget.topic,
-                    tasks: _tasks,
+                    tasks: widget.tasks,
                     progress: _progress,
                     completed: _completed,
-                    expanded: _tasksExpanded,
+                    expanded: widget.tasksExpanded,
                     accent: accent,
                     onExpand: () {
-                      setState(() => _tasksExpanded = !_tasksExpanded);
-                      widget.onGeometryChanged();
+                      widget.onTasksExpanded(!widget.tasksExpanded);
                     },
-                    onTaskEdited: _loadTasks,
                     onTasksChanged: widget.onTasksChanged,
                     onStatusChanged: widget.onStatusChanged,
+                    onEdit: widget.onEdit,
+                    onDelete: widget.onDelete,
                   ),
                 TopicStatus.completed => _CompletedNode(
                     key: ValueKey('completed-${widget.topic.id}'),
                     topic: widget.topic,
-                    tasks: _tasks,
+                    tasks: widget.tasks,
                     progress: _progress,
                     completed: _completed,
                     accent: accent,
                     onTap: () => widget.onStatusChanged(TopicStatus.active),
+                    onEdit: widget.onEdit,
+                    onDelete: widget.onDelete,
                   ),
                 TopicStatus.pending => _PendingNode(
                     key: ValueKey('pending-${widget.topic.id}'),
                     topic: widget.topic,
-                    tasks: _tasks,
+                    tasks: widget.tasks,
                     progress: _progress,
                     completed: _completed,
                     accent: accent,
                     onTap: () => widget.onStatusChanged(TopicStatus.active),
+                    onEdit: widget.onEdit,
+                    onDelete: widget.onDelete,
                   ),
               },
             ),
@@ -172,9 +168,10 @@ class _ActiveNode extends StatelessWidget {
     required this.expanded,
     required this.accent,
     required this.onExpand,
-    required this.onTaskEdited,
     required this.onTasksChanged,
     required this.onStatusChanged,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final Topic topic;
@@ -184,9 +181,10 @@ class _ActiveNode extends StatelessWidget {
   final bool expanded;
   final Color accent;
   final VoidCallback onExpand;
-  final VoidCallback onTaskEdited;
   final VoidCallback onTasksChanged;
   final ValueChanged<TopicStatus> onStatusChanged;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -255,11 +253,16 @@ class _ActiveNode extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _StatusButton(
-                  tooltip: 'Mark ${topic.title} completed',
-                  icon: Icons.check_circle_outline_rounded,
-                  color: Colors.white.withValues(alpha: 0.75),
-                  onTap: () => onStatusChanged(TopicStatus.completed),
+                Column(
+                  children: [
+                    _StatusButton(
+                      tooltip: 'Mark ${topic.title} completed',
+                      icon: Icons.check_circle_outline_rounded,
+                      color: Colors.white.withValues(alpha: 0.75),
+                      onTap: () => onStatusChanged(TopicStatus.completed),
+                    ),
+                    _TopicMenu(onEdit: onEdit, onDelete: onDelete),
+                  ],
                 ),
               ],
             ),
@@ -313,7 +316,6 @@ class _ActiveNode extends StatelessWidget {
                     for (final task in tasks)
                       _TopicTaskRow(
                         task: task,
-                        onEdited: onTaskEdited,
                         onChanged: onTasksChanged,
                         onDark: true,
                       ),
@@ -331,7 +333,6 @@ class _ActiveNode extends StatelessWidget {
                     builder: (_) => TaskEditorScreen(topicId: topic.id),
                   ),
                 );
-                onTaskEdited();
                 onTasksChanged();
               },
               child: Container(
@@ -345,8 +346,7 @@ class _ActiveNode extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.add_rounded,
-                        size: 17,
-                        color: Colors.white.withValues(alpha: 0.90)),
+                        size: 17, color: Colors.white.withValues(alpha: 0.90)),
                     const SizedBox(width: 6),
                     Text(
                       'Add task',
@@ -379,6 +379,8 @@ class _CompletedNode extends StatelessWidget {
     required this.completed,
     required this.accent,
     required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final Topic topic;
@@ -387,6 +389,8 @@ class _CompletedNode extends StatelessWidget {
   final int completed;
   final Color accent;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -425,8 +429,7 @@ class _CompletedNode extends StatelessWidget {
                     icon: Icons.check_rounded,
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded,
-                      color: accent.withValues(alpha: 0.4), size: 20),
+                  _TopicMenu(onEdit: onEdit, onDelete: onDelete, onDark: false),
                 ],
               ),
               const SizedBox(height: 10),
@@ -469,6 +472,8 @@ class _PendingNode extends StatelessWidget {
     required this.completed,
     required this.accent,
     required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final Topic topic;
@@ -477,6 +482,8 @@ class _PendingNode extends StatelessWidget {
   final int completed;
   final Color accent;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -514,8 +521,7 @@ class _PendingNode extends StatelessWidget {
                     textColor: _darken(accent, 0.05),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded,
-                      color: accent.withValues(alpha: 0.45), size: 20),
+                  _TopicMenu(onEdit: onEdit, onDelete: onDelete, onDark: false),
                 ],
               ),
               const SizedBox(height: 10),
@@ -623,9 +629,7 @@ class _NodeProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final barBg =
         onDark ? Colors.white.withValues(alpha: 0.22) : AppColors.divider;
-    final barFg = onDark
-        ? Colors.white
-        : (accent ?? AppColors.attention);
+    final barFg = onDark ? Colors.white : (accent ?? AppColors.attention);
     final textFg = onDark
         ? Colors.white.withValues(alpha: 0.80)
         : (accent?.withValues(alpha: 0.75) ?? AppColors.textSecondary);
@@ -705,16 +709,35 @@ class _StatusButton extends StatelessWidget {
   }
 }
 
+class _TopicMenu extends StatelessWidget {
+  const _TopicMenu(
+      {required this.onEdit, required this.onDelete, this.onDark = true});
+
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+        tooltip: 'Topic options',
+        icon: Icon(Icons.more_horiz_rounded,
+            color: onDark ? Colors.white70 : AppColors.textSecondary),
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'edit', child: Text('Edit topic')),
+          PopupMenuItem(value: 'delete', child: Text('Delete topic')),
+        ],
+        onSelected: (action) => action == 'edit' ? onEdit() : onDelete(),
+      );
+}
+
 class _TopicTaskRow extends StatelessWidget {
   const _TopicTaskRow({
     required this.task,
-    required this.onEdited,
     required this.onChanged,
     this.onDark = false,
   });
 
   final Task task;
-  final VoidCallback onEdited;
   final VoidCallback onChanged;
   final bool onDark;
 
@@ -735,7 +758,6 @@ class _TopicTaskRow extends StatelessWidget {
                   await ctrl.completeTask(task.id);
                 }
                 if (!context.mounted) return;
-                onEdited();
                 onChanged();
               },
               icon: AnimatedSwitcher(
@@ -761,7 +783,6 @@ class _TopicTaskRow extends StatelessWidget {
                         builder: (_) => TaskEditorScreen(task: task)),
                   );
                   if (!context.mounted) return;
-                  onEdited();
                   onChanged();
                 },
                 child: Padding(
@@ -785,12 +806,21 @@ class _TopicTaskRow extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 16,
-              color: onDark
-                  ? Colors.white.withValues(alpha: 0.45)
-                  : AppColors.textSecondary,
+            PopupMenuButton<String>(
+              tooltip: 'Task options',
+              icon: Icon(Icons.more_vert_rounded,
+                  size: 19,
+                  color: onDark
+                      ? Colors.white.withValues(alpha: 0.65)
+                      : AppColors.textSecondary),
+              onSelected: (_) async {
+                await context.read<TaskController>().deleteTask(task.id);
+                if (!context.mounted) return;
+                onChanged();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'delete', child: Text('Delete task')),
+              ],
             ),
           ],
         ),
@@ -798,5 +828,4 @@ class _TopicTaskRow extends StatelessWidget {
 }
 
 // Helpers
-String _ordinal(int zeroIndex) =>
-    (zeroIndex + 1).toString().padLeft(2, '0');
+String _ordinal(int zeroIndex) => (zeroIndex + 1).toString().padLeft(2, '0');

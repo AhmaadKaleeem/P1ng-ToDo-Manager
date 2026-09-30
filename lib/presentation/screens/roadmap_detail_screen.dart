@@ -16,9 +16,18 @@ import 'package:todow/presentation/widgets/task_time_view.dart';
 
 // Inline palette resolver — kept in sync with roadmap_list_screen palette.
 const _kDetailPalette = [
-  Color(0xFF1E3A8A), Color(0xFF0EA5E9), Color(0xFF0D9488), Color(0xFF059669),
-  Color(0xFFF59E0B), Color(0xFFFB7185), Color(0xFFF472B6), Color(0xFF7C3AED),
-  Color(0xFF4F46E5), Color(0xFFEF4444), Color(0xFF475569), Color(0xFFF59E0B),
+  Color(0xFF1E3A8A),
+  Color(0xFF0EA5E9),
+  Color(0xFF0D9488),
+  Color(0xFF059669),
+  Color(0xFFF59E0B),
+  Color(0xFFFB7185),
+  Color(0xFFF472B6),
+  Color(0xFF7C3AED),
+  Color(0xFF4F46E5),
+  Color(0xFFEF4444),
+  Color(0xFF475569),
+  Color(0xFFF59E0B),
 ];
 
 Color _roadmapAccent(Roadmap r) {
@@ -38,9 +47,12 @@ class RoadmapDetailScreen extends StatefulWidget {
 
 class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
     with SingleTickerProviderStateMixin {
+  late Roadmap _roadmap;
   List<Topic> _topics = [];
   List<Task> _tasks = [];
   bool _loading = true;
+  bool _dateView = false;
+  String? _expandedTopicId;
   List<GlobalKey> _cardKeys = [];
   final _pathKey = GlobalKey();
   List<Rect> _cardBounds = [];
@@ -49,6 +61,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
   @override
   void initState() {
     super.initState();
+    _roadmap = widget.roadmap;
     _routeAnimation = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 620),
@@ -64,8 +77,8 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
 
   Future<void> _loadData() async {
     final ctrl = context.read<RoadmapController>();
-    final topics = await ctrl.getTopics(widget.roadmap.id);
-    final tasks = await ctrl.getTasksByRoadmap(widget.roadmap.id);
+    final topics = await ctrl.getTopics(_roadmap.id);
+    final tasks = await ctrl.getTasksByRoadmap(_roadmap.id);
     if (!mounted) return;
     final routeChanged = topics.map((topic) => topic.id).join('|') !=
         _topics.map((topic) => topic.id).join('|');
@@ -122,9 +135,8 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
   }
 
   Future<void> _reloadRoadmapTasks() async {
-    final tasks = await context
-        .read<RoadmapController>()
-        .getTasksByRoadmap(widget.roadmap.id);
+    final tasks =
+        await context.read<RoadmapController>().getTasksByRoadmap(_roadmap.id);
     if (mounted) setState(() => _tasks = tasks);
   }
 
@@ -132,7 +144,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
     try {
       final tasks = await context
           .read<RoadmapController>()
-          .getTasksByRoadmap(widget.roadmap.id);
+          .getTasksByRoadmap(_roadmap.id);
       final rows = <List<String>>[
         const [
           'roadmap_title',
@@ -153,8 +165,8 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
           for (final topic
               in _topics.where((topic) => topic.id == task.topicId))
             [
-              widget.roadmap.title,
-              widget.roadmap.description ?? '',
+              _roadmap.title,
+              _roadmap.description ?? '',
               topic.title,
               topic.description ?? '',
               '${topic.orderIndex + 1}',
@@ -183,7 +195,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
             ));
       final path = await FilePicker.platform.saveFile(
         dialogTitle: 'Export Roadmap',
-        fileName: '${widget.roadmap.title}.$extension',
+        fileName: '${_roadmap.title}.$extension',
         type: FileType.custom,
         allowedExtensions: [extension],
         bytes: bytes,
@@ -202,7 +214,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final accent = _roadmapAccent(widget.roadmap);
+    final accent = _roadmapAccent(_roadmap);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _loading
@@ -274,20 +286,41 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 // Export
-                                PopupMenuButton<bool>(
-                                  tooltip: 'Export Roadmap',
+                                PopupMenuButton<String>(
+                                  tooltip: 'Roadmap options',
                                   color: AppColors.surface,
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16)),
                                   padding: EdgeInsets.zero,
-                                  onSelected: _exportRoadmap,
+                                  onSelected: (action) {
+                                    switch (action) {
+                                      case 'csv':
+                                        _exportRoadmap(false);
+                                        break;
+                                      case 'excel':
+                                        _exportRoadmap(true);
+                                        break;
+                                      case 'edit':
+                                        _editRoadmap();
+                                        break;
+                                      case 'delete':
+                                        _confirmDeleteRoadmap();
+                                        break;
+                                    }
+                                  },
                                   itemBuilder: (context) => const [
                                     PopupMenuItem(
-                                        value: false,
+                                        value: 'edit',
+                                        child: Text('Edit roadmap')),
+                                    PopupMenuItem(
+                                        value: 'csv',
                                         child: Text('Export CSV')),
                                     PopupMenuItem(
-                                        value: true,
+                                        value: 'excel',
                                         child: Text('Export Excel')),
+                                    PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete roadmap')),
                                   ],
                                   child: Container(
                                     height: 34,
@@ -301,10 +334,10 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: const [
-                                        Icon(Icons.ios_share_rounded,
-                                            size: 15, color: Colors.white),
+                                        Icon(Icons.more_horiz_rounded,
+                                            size: 18, color: Colors.white),
                                         SizedBox(width: 6),
-                                        Text('Export',
+                                        Text('More',
                                             style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
@@ -316,7 +349,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                                 const SizedBox(width: 8),
                                 // Add Topic
                                 _NewTopicButton(
-                                  roadmapId: widget.roadmap.id,
+                                  roadmapId: _roadmap.id,
                                   orderIndex: _topics.length,
                                   onAdded: _loadData,
                                   accent: accent,
@@ -326,7 +359,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                             const SizedBox(height: 20),
                             // Roadmap title
                             Text(
-                              widget.roadmap.title,
+                              _roadmap.title,
                               style: const TextStyle(
                                   fontSize: 26,
                                   height: 1.05,
@@ -334,10 +367,9 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                                   color: Colors.white,
                                   letterSpacing: -0.8),
                             ),
-                            if (widget.roadmap.description?.isNotEmpty ??
-                                false) ...[
+                            if (_roadmap.description?.isNotEmpty ?? false) ...[
                               const SizedBox(height: 6),
-                              Text(widget.roadmap.description!,
+                              Text(_roadmap.description!,
                                   style: TextStyle(
                                       fontSize: 14,
                                       height: 1.45,
@@ -353,97 +385,412 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                 // ── Progress card ────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                     child: _RoadmapProgress(
                         topics: _topics, tasks: _tasks, accent: accent),
                   ),
                 ),
-
-                  SliverToBoxAdapter(
-                    child: _topics.isEmpty
-                        ? _EmptyRoadmap(
-                            onAddTopic: () => _NewTopicButton(
-                              roadmapId: widget.roadmap.id,
-                              orderIndex: 0,
-                              onAdded: _loadData,
-                            ).showCreateDialog(context),
-                          )
-                        : Stack(
-                            key: _pathKey,
-                            children: [
-                              if (_cardBounds.length == _topics.length)
-                                Positioned.fill(
-                                  child: IgnorePointer(
-                                    child: AnimatedBuilder(
-                                      animation: _routeAnimation,
-                                      builder: (context, _) => CustomPaint(
-                                        painter: RoadmapSpinePainter(
-                                          cardBounds: _cardBounds,
-                                          topics: _topics,
-                                          accentColor: AppColors.action,
-                                          progress: Curves.easeOutCubic
-                                              .transform(_routeAnimation.value),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+                    child: _RoadmapModeSwitch(
+                      dateView: _dateView,
+                      accent: accent,
+                      onChanged: (dateView) =>
+                          setState(() => _dateView = dateView),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: _dateView
+                      ? TaskTimeView(roadmapId: _roadmap.id, topics: _topics)
+                      : _topics.isEmpty
+                          ? _EmptyRoadmap(
+                              onAddTopic: () => _NewTopicButton(
+                                roadmapId: _roadmap.id,
+                                orderIndex: 0,
+                                onAdded: _loadData,
+                              ).showCreateDialog(context),
+                            )
+                          : Stack(
+                              key: _pathKey,
+                              children: [
+                                if (_cardBounds.length == _topics.length)
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _routeAnimation,
+                                        builder: (context, _) => CustomPaint(
+                                          painter: RoadmapSpinePainter(
+                                            cardBounds: _cardBounds,
+                                            topics: _topics,
+                                            accentColor: AppColors.action,
+                                            progress: Curves.easeOutCubic
+                                                .transform(
+                                                    _routeAnimation.value),
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 24),
-                                child: NotificationListener<
-                                    SizeChangedLayoutNotification>(
-                                  onNotification: (_) {
-                                    _scheduleGeometryUpdate();
-                                    return false;
-                                  },
-                                  child: Column(
-                                    children: [
-                                      for (int i = 0; i < _topics.length; i++)
-                                        SizeChangedLayoutNotifier(
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                                bottom: 64),
-                                            child: TopicCard(
-                                              cardKey: _cardKeys[i],
-                                              topic: _topics[i],
-                                              roadmap: widget.roadmap,
-                                              index: i,
-                                              onTasksChanged:
-                                                  _reloadRoadmapTasks,
-                                              onGeometryChanged:
-                                                  _scheduleGeometryUpdate,
-                                              onStatusChanged:
-                                                  (newStatus) async {
-                                                final updated = _topics[i]
-                                                    .copyWith(
-                                                        status: newStatus);
-                                                await context
-                                                    .read<RoadmapController>()
-                                                    .updateTopic(updated);
-                                                _loadData();
-                                              },
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: NotificationListener<
+                                      SizeChangedLayoutNotification>(
+                                    onNotification: (_) {
+                                      _scheduleGeometryUpdate();
+                                      return false;
+                                    },
+                                    child: Column(
+                                      children: [
+                                        for (int i = 0; i < _topics.length; i++)
+                                          SizeChangedLayoutNotifier(
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 40),
+                                              child: TopicCard(
+                                                cardKey: _cardKeys[i],
+                                                topic: _topics[i],
+                                                roadmap: _roadmap,
+                                                index: i,
+                                                onTasksChanged:
+                                                    _reloadRoadmapTasks,
+                                                onEdit: () =>
+                                                    _editTopic(_topics[i]),
+                                                tasks: _tasks
+                                                    .where((task) =>
+                                                        task.topicId ==
+                                                        _topics[i].id)
+                                                    .toList(),
+                                                tasksExpanded:
+                                                    _expandedTopicId ==
+                                                        _topics[i].id,
+                                                onTasksExpanded: (expanded) {
+                                                  setState(() =>
+                                                      _expandedTopicId =
+                                                          expanded
+                                                              ? _topics[i].id
+                                                              : null);
+                                                  _scheduleGeometryUpdate();
+                                                },
+                                                onDelete: () =>
+                                                    _confirmDeleteTopic(
+                                                        _topics[i]),
+                                                onStatusChanged:
+                                                    (newStatus) async {
+                                                  final updated = _topics[i]
+                                                      .copyWith(
+                                                          status: newStatus);
+                                                  await context
+                                                      .read<RoadmapController>()
+                                                      .updateTopic(updated);
+                                                  _loadData();
+                                                },
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                  SliverToBoxAdapter(
-                    child: TaskTimeView(
-                        roadmapId: widget.roadmap.id, topics: _topics),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 60)),
+                              ],
+                            ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 60)),
               ],
             ),
     );
   }
+
+  Future<void> _confirmDeleteTopic(Topic topic) async {
+    final delete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete topic?'),
+        content: Text(
+            '“${topic.title}” will be removed. Its tasks will stay in Todow.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (delete != true || !mounted) return;
+    await context.read<RoadmapController>().deleteTopic(topic.id);
+    await _loadData();
+  }
+
+  Future<void> _editTopic(Topic topic) async {
+    final edits = await showDialog<_PlanEdits>(
+      context: context,
+      builder: (_) => _PlanEditorDialog(
+        entity: 'Topic',
+        title: topic.title,
+        description: topic.description ?? '',
+        accent: _roadmapAccent(_roadmap),
+      ),
+    );
+    if (edits != null && mounted) {
+      await context.read<RoadmapController>().updateTopic(
+            topic.copyWith(
+              title: edits.title,
+              description: edits.description,
+              clearDescription: edits.description.isEmpty,
+            ),
+          );
+      await _loadData();
+    }
+  }
+
+  Future<void> _editRoadmap() async {
+    final edits = await showDialog<_PlanEdits>(
+      context: context,
+      builder: (_) => _PlanEditorDialog(
+        entity: 'Roadmap',
+        title: _roadmap.title,
+        description: _roadmap.description ?? '',
+        accent: _roadmapAccent(_roadmap),
+      ),
+    );
+    if (edits != null && mounted) {
+      final edited = _roadmap.copyWith(
+        title: edits.title,
+        description: edits.description,
+        clearDescription: edits.description.isEmpty,
+      );
+      await context.read<RoadmapController>().updateRoadmap(edited);
+      if (mounted) setState(() => _roadmap = edited);
+    }
+  }
+
+  Future<void> _confirmDeleteRoadmap() async {
+    final delete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete roadmap?'),
+        content: Text(
+            '“${_roadmap.title}” will be removed. Its tasks will stay in Todow.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (delete != true || !mounted) return;
+    await context.read<RoadmapController>().deleteRoadmap(_roadmap.id);
+    if (mounted) Navigator.of(context).pop();
+  }
 }
+
+class _RoadmapModeSwitch extends StatelessWidget {
+  const _RoadmapModeSwitch(
+      {required this.dateView, required this.accent, required this.onChanged});
+
+  final bool dateView;
+  final Color accent;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          _ModeOption(
+              label: 'Roadmap',
+              selected: !dateView,
+              accent: accent,
+              onTap: () => onChanged(false)),
+          const SizedBox(width: 8),
+          _ModeOption(
+              label: 'By date',
+              selected: dateView,
+              accent: AppColors.action,
+              onTap: () => onChanged(true)),
+        ],
+      );
+}
+
+class _ModeOption extends StatelessWidget {
+  const _ModeOption(
+      {required this.label,
+      required this.selected,
+      required this.accent,
+      required this.onTap});
+
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: selected ? accent : accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected ? accent : accent.withValues(alpha: 0.24),
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(label,
+                style: TextStyle(
+                    color: selected
+                        ? (accent == AppColors.attention
+                            ? AppColors.textPrimary
+                            : Colors.white)
+                        : AppColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ),
+      );
+}
+
+class _PlanEdits {
+  const _PlanEdits(this.title, this.description);
+
+  final String title;
+  final String description;
+}
+
+class _PlanEditorDialog extends StatefulWidget {
+  const _PlanEditorDialog({
+    required this.entity,
+    required this.title,
+    required this.description,
+    required this.accent,
+  });
+
+  final String entity;
+  final String title;
+  final String description;
+  final Color accent;
+
+  @override
+  State<_PlanEditorDialog> createState() => _PlanEditorDialogState();
+}
+
+class _PlanEditorDialogState extends State<_PlanEditorDialog> {
+  late final TextEditingController _title =
+      TextEditingController(text: widget.title);
+  late final TextEditingController _description =
+      TextEditingController(text: widget.description);
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit ${widget.entity.toLowerCase()}',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: _title,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: _planFieldDecoration(
+                    '${widget.entity} name', widget.accent),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _description,
+                textCapitalization: TextCapitalization.sentences,
+                maxLines: 3,
+                decoration: _planFieldDecoration(
+                    'Description (optional)', widget.accent),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: widget.accent,
+                      foregroundColor: widget.accent == AppColors.attention
+                          ? AppColors.textPrimary
+                          : Colors.white,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  void _save() {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    Navigator.pop(
+      context,
+      _PlanEdits(title, _description.text.trim()),
+    );
+  }
+}
+
+InputDecoration _planFieldDecoration(String label, Color accent) =>
+    InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AppColors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.divider),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: accent, width: 1.5),
+      ),
+    );
 
 class _NewTopicButton extends StatelessWidget {
   const _NewTopicButton({
@@ -515,17 +862,6 @@ class _NewTopicButton extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.route_rounded,
-                            size: 18, color: accent),
-                      ),
-                      const SizedBox(width: 12),
                       const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,8 +900,7 @@ class _NewTopicButton extends StatelessWidget {
                               const BorderSide(color: AppColors.divider)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide:
-                              BorderSide(color: accent, width: 1.5)),
+                          borderSide: BorderSide(color: accent, width: 1.5)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -575,19 +910,17 @@ class _NewTopicButton extends StatelessWidget {
                       TextButton(
                           onPressed: () => Navigator.pop(ctx),
                           child: const Text('Cancel',
-                              style: TextStyle(
-                                  color: AppColors.textSecondary))),
+                              style:
+                                  TextStyle(color: AppColors.textSecondary))),
                       const SizedBox(width: 8),
                       FilledButton(
                         onPressed: () async {
                           final title = titleCtrl.text.trim();
                           if (title.isEmpty) return;
-                          await context
-                              .read<RoadmapController>()
-                              .createTopic(
-                                  roadmapId: roadmapId,
-                                  title: title,
-                                  orderIndex: orderIndex);
+                          await context.read<RoadmapController>().createTopic(
+                              roadmapId: roadmapId,
+                              title: title,
+                              orderIndex: orderIndex);
                           if (!ctx.mounted) return;
                           Navigator.pop(ctx);
                           onAdded();
