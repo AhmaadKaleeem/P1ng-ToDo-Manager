@@ -54,13 +54,14 @@ When enabled, continues reminding according to repeat policy until completed, sn
 ### FR-07 Today
 Aggregates overdue, today's, upcoming, active reminders, timetable entries, and active focus. Not an analytics dashboard.
 Home highlights the two categories with the most tasks and shows completed and total counts. Create a task in Daily Tasks or another category and its card appears automatically, so the home overview reflects the work you actually have. Personal Notes and Study fill empty slots when fewer than two task categories have tasks; Inbox and roadmap tasks are excluded.
+The Home screen keeps its three summary cards at the top, then brings today's due tasks and classes into view. Due tasks are ordered by time and can be completed from the list. Today's classes follow the weekly timetable in time order, with the current or next class called out. The class list stays compact when the day is busy, and View timetable opens the full weekly schedule. When there are no classes, a short empty state takes the place of the list.
 
 ### FR-08 Focus Mode
 Task-linked sessions, timer, pause/resume/end, presets, basic distraction controls.
 
 ### FR-09, FR-10, FR-11 Timetable
-Manual entry, CSV import, OCR image import.
-Flow: Upload/Extract → Draft → Review/Edit → Confirm → Persist.
+Classes are personal recurring weekly entries. Choose a weekday to review, edit, add, or remove its classes; changing one weekday does not change another. The Home screen uses these same entries for today's schedule.
+Timetable import follows Upload or Extract → Draft → Review/Edit → Confirm → Persist. Confirmed manual and import data should use the same timetable entry model so the weekly schedule stays consistent.
 
 ### FR-12 & FR-13 Roadmaps
 Roadmaps turn long-term work into a clear route through ordered Topics. Alternating stage cards connect along a visible path, with completed work settled, the current stage emphasized, and upcoming Topics easy to scan. Each stage shows task progress at a glance. Expand tasks in one Topic at a time to keep the route focused, or switch to By date to browse today's, this week's, upcoming, all scheduled work, a custom date range, or selected days grouped under their Topic. Edit a Roadmap from its card options or its detail menu; rename a Topic from its options. Tasks keep their own schedules while belonging to one Topic; complete or reopen a task from its circle, open it to edit, add a task directly to a stage, or delete it from the stage. Delete a Topic from its options; its tasks remain safely in Todow, detached but intact. Create a Roadmap by hand or import or export it as CSV or Excel. The import screen provides a downloadable CSV sample with multiple Topics and tasks. Replace its example rows or omit optional columns such as descriptions, due dates, priority, status, and reminders. Todow checks every imported row before a single SQLite transaction, so a bad file never leaves behind a half-imported plan. Reorder Roadmaps with the drag handle or move controls. Delete a Roadmap from its options menu; its tasks remain safely in Todow, detached but intact. Everything is saved locally in SQLite, so each plan remains available offline.

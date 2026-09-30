@@ -96,6 +96,9 @@ Keep the Roadmap and By date switch compact at 36dp tall, with the active choice
 - **Secondary Cards**: White surface, soft shadow. Category chip top-right (Pink/Coral/Navy cycle). Amber progress bar.
 - **Task Rows**: All tasks inside a single white surface block with soft shadow and 1px divider between rows.
 - **Quick Add**: White surface, soft shadow, borderless text field.
+- **Today's Work**: Preserve the top summary cards. Follow them with due-today tasks sorted by due time. Show up to three compact rows before a View all tasks action; completing a row updates it immediately.
+- **Today's Classes**: Follow Today's Work with a compact white card of every class for the current weekday, ordered by start time. Mark the active class or the next upcoming class with Azure and a short NOW/NEXT label. Constrain the card's height and allow its list to scroll internally; keep View timetable visible below it. With no classes, show a single-line empty state and View timetable action.
+- **Weekly Timetable**: Default to the current weekday, with small weekday pills for the remaining schedule. Explain that classes repeat weekly. Each class row opens editing and keeps edit and delete actions visible; deletion names the weekday so recurring removal is clear.
 
 ### Task Editor
 - **Header**: "New task" 34/w800/-0.8/textPrimary + Amber underline.

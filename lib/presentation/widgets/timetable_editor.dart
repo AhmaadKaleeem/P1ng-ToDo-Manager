@@ -2,22 +2,32 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:todow/domain/models/enums.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
 import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:provider/provider.dart';
 
-
-Future<void> showTimetableEditor(BuildContext context) async {
-  final course = TextEditingController();
-  final instructor = TextEditingController();
-  final room = TextEditingController();
-  var weekday = Weekday.values[DateTime.now().weekday - 1];
-  var start = const TimeOfDay(hour: 9, minute: 0);
-  var end = const TimeOfDay(hour: 10, minute: 0);
+Future<void> showTimetableEditor(
+  BuildContext context, {
+  TimetableEntry? entry,
+  Weekday? initialWeekday,
+}) async {
+  final course = TextEditingController(text: entry?.courseName);
+  final instructor = TextEditingController(text: entry?.instructor);
+  final room = TextEditingController(text: entry?.room);
+  var weekday = entry?.weekday ??
+      initialWeekday ??
+      Weekday.values[DateTime.now().weekday - 1];
+  var start = entry == null
+      ? const TimeOfDay(hour: 9, minute: 0)
+      : TimeOfDay.fromDateTime(entry.startTime);
+  var end = entry == null
+      ? const TimeOfDay(hour: 10, minute: 0)
+      : TimeOfDay.fromDateTime(entry.endTime);
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Add class'),
+        title: Text(entry == null ? 'Add class' : 'Edit class'),
         content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
@@ -63,15 +73,33 @@ Future<void> showTimetableEditor(BuildContext context) async {
               onPressed: () async {
                 final now = DateTime.now();
                 try {
-                  await context.read<TimetableController>().add(
+                  final startTime = DateTime(
+                      now.year, now.month, now.day, start.hour, start.minute);
+                  final endTime = DateTime(
+                      now.year, now.month, now.day, end.hour, end.minute);
+                  final controller = context.read<TimetableController>();
+                  if (entry == null) {
+                    await controller.add(
                       courseName: course.text,
                       instructor: instructor.text,
                       weekday: weekday,
-                      startTime: DateTime(now.year, now.month, now.day,
-                          start.hour, start.minute),
-                      endTime: DateTime(
-                          now.year, now.month, now.day, end.hour, end.minute),
-                      room: room.text);
+                      startTime: startTime,
+                      endTime: endTime,
+                      room: room.text,
+                    );
+                  } else {
+                    await controller.update(TimetableEntry(
+                      id: entry.id,
+                      courseName: course.text.trim(),
+                      instructor: instructor.text.trim(),
+                      weekday: weekday,
+                      startTime: startTime,
+                      endTime: endTime,
+                      room: room.text.trim().isEmpty ? null : room.text.trim(),
+                      colorValue: entry.colorValue,
+                      category: entry.category,
+                    ));
+                  }
                   if (dialogContext.mounted) {
                     Navigator.pop(dialogContext);
                   }
@@ -82,7 +110,7 @@ Future<void> showTimetableEditor(BuildContext context) async {
                   }
                 }
               },
-              child: const Text('Add')),
+              child: Text(entry == null ? 'Add class' : 'Save changes')),
         ],
       ),
     ),

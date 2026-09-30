@@ -67,6 +67,17 @@ class TimetableController extends ChangeNotifier {
     await _repository.delete(id);
     await load();
   }
+
+  Future<void> update(TimetableEntry entry) async {
+    if (entry.courseName.trim().isEmpty) {
+      throw TimetableValidationException('Course name is required.');
+    }
+    if (!entry.endTime.isAfter(entry.startTime)) {
+      throw TimetableValidationException('End time must be after start time.');
+    }
+    await _repository.update(entry);
+    await load();
+  }
 }
 
 class TimetableValidationException implements Exception {

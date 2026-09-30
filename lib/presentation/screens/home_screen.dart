@@ -4,15 +4,19 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:todow/core/theme/app_colors.dart';
+import 'package:todow/core/utils/date_format.dart';
+import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/task.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
 import 'package:todow/presentation/controllers/roadmap_controller.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:todow/presentation/controllers/app_controller.dart';
 import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
+import 'package:todow/presentation/widgets/timetable_editor.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/query.dart';
 import 'package:todow/domain/date_labels.dart';
 import 'package:todow/presentation/screens/app_shell.dart';
@@ -62,6 +66,148 @@ class _HomeScreenState extends State<HomeScreen> {
       f.status != TaskStatusFilter.open ||
       f.priorities.isNotEmpty ||
       f.due.isNotEmpty;
+
+  Widget _sectionHeading(String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        child: Text(label,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+                color: AppColors.textSecondary)),
+      );
+
+  Widget _todayWork(TaskController controller) {
+    final tasks = controller.todayTasks
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+    final visible = tasks.take(3).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeading("TODAY'S WORK"),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [_softShadow]),
+          child: tasks.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Nothing due today',
+                        style: TextStyle(
+                            fontSize: 14, color: AppColors.textSecondary)),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (var i = 0; i < visible.length; i++) ...[
+                      _TodayTaskRow(
+                        task: visible[i],
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  TaskEditorScreen(task: visible[i])),
+                        ),
+                        onComplete: () =>
+                            controller.completeTask(visible[i].id),
+                      ),
+                      if (i < visible.length - 1)
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                    ],
+                    if (tasks.length > visible.length) ...[
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () =>
+                              AppShellScope.of(context).selectPage(1),
+                          child: Text('View all ${tasks.length} tasks  →'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _todayClasses(TimetableController controller) {
+    final now = DateTime.now();
+    final weekday = WeekdayExt.fromDartWeekday(now.weekday);
+    final classes = controller.forDay(weekday);
+    var highlighted = -1;
+    for (var i = 0; i < classes.length; i++) {
+      final entry = classes[i];
+      final start = DateTime(now.year, now.month, now.day, entry.startTime.hour,
+          entry.startTime.minute);
+      final end = DateTime(now.year, now.month, now.day, entry.endTime.hour,
+          entry.endTime.minute);
+      if (!now.isBefore(start) && now.isBefore(end)) {
+        highlighted = i;
+        break;
+      }
+      if (highlighted == -1 && start.isAfter(now)) highlighted = i;
+    }
+
+    void openTimetable() => AppShellScope.of(context).selectPage(3);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeading("TODAY'S CLASSES"),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [_softShadow]),
+          child: classes.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                  child: Row(children: [
+                    const Expanded(
+                        child: Text('No classes today',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary))),
+                    TextButton(
+                        onPressed: openTimetable,
+                        child: const Text('View timetable  →')),
+                  ]),
+                )
+              : Column(
+                  children: [
+                    SizedBox(
+                      height: (classes.length * 62.0).clamp(62.0, 220.0),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        itemCount: classes.length,
+                        itemBuilder: (context, index) => _TodayClassRow(
+                          entry: classes[index],
+                          primary: index == highlighted,
+                          onTap: () => showTimetableEditor(context,
+                              entry: classes[index]),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                          onPressed: openTimetable,
+                          child: const Text('View timetable  →')),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
 
   String sortLabel(TaskSort s) {
     switch (s) {
@@ -203,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final tc = context.watch<TaskController>();
+    final timetable = context.watch<TimetableController>();
     final visibleTasks =
         tc.visibleTasks.where((task) => task.topicId == null).toList();
     final active =
@@ -346,7 +493,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 36)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                  SliverToBoxAdapter(child: _todayWork(tc)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  SliverToBoxAdapter(child: _todayClasses(timetable)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 28)),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -1589,6 +1740,127 @@ class _InlineInsertFieldState extends State<_InlineInsertField> {
               onPressed: _submit,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayTaskRow extends StatelessWidget {
+  const _TodayTaskRow({
+    required this.task,
+    required this.onTap,
+    required this.onComplete,
+  });
+
+  final Task task;
+  final VoidCallback onTap;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(task.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 3),
+                    Text('Due ${AppDateFormat.time(task.dueAt!)}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onComplete,
+                tooltip: 'Complete task',
+                icon:
+                    const Icon(Icons.circle_outlined, color: AppColors.action),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _TodayClassRow extends StatelessWidget {
+  const _TodayClassRow({
+    required this.entry,
+    required this.primary,
+    required this.onTap,
+  });
+
+  final TimetableEntry entry;
+  final bool primary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day, entry.startTime.hour,
+        entry.startTime.minute);
+    final end = DateTime(
+        now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
+    final current = !now.isBefore(start) && now.isBefore(end);
+    return Material(
+      color: primary ? AppColors.surfaceElevated : AppColors.surface,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(AppDateFormat.time(entry.startTime),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: primary ? FontWeight.w700 : FontWeight.w500,
+                        color: primary
+                            ? AppColors.action
+                            : AppColors.textSecondary)),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.courseName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                primary ? FontWeight.w700 : FontWeight.w500,
+                            color: AppColors.textPrimary)),
+                    if (entry.room?.trim().isNotEmpty == true)
+                      Text(entry.room!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+              if (primary)
+                Text(current ? 'NOW' : 'NEXT',
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppColors.action)),
+            ],
+          ),
         ),
       ),
     );

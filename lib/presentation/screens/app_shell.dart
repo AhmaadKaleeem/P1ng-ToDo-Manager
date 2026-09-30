@@ -38,6 +38,12 @@ class AppShellState extends State<AppShell>
     _animateDrawer(_animationController.value < 0.5);
   }
 
+  void selectPage(int index) {
+    if (index < 0 || index >= 5) return;
+    setState(() => _index = index);
+    _animateDrawer(false);
+  }
+
   void _animateDrawer(bool open) {
     _animationController.animateTo(
       open ? 1 : 0,
