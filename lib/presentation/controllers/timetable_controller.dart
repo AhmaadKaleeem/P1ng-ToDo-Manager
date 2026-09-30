@@ -57,6 +57,7 @@ class TimetableController extends ChangeNotifier {
     bool repeatWeekly = true,
     String? taskId,
     String? category,
+    int? colorValue,
   }) async {
     _validate(courseName, startTime, endTime);
     await _repository.create(
@@ -73,6 +74,7 @@ class TimetableController extends ChangeNotifier {
         repeatWeekly: repeatWeekly,
         taskId: taskId,
         category: category,
+        colorValue: colorValue,
       ),
     );
     await load();

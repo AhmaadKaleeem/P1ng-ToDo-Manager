@@ -1,11 +1,11 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
 import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/core/theme/app_colors.dart';
 
 Future<void> showTimetableEditor(
   BuildContext context, {
@@ -14,213 +14,629 @@ Future<void> showTimetableEditor(
   DateTime? initialDate,
   TimetableKind scheduleKind = TimetableKind.university,
 }) async {
-  final course = TextEditingController(text: entry?.courseName);
-  final instructor = TextEditingController(text: entry?.instructor);
-  final room = TextEditingController(text: entry?.room);
-  var weekday = entry?.weekday ??
-      initialWeekday ??
-      Weekday.values[DateTime.now().weekday - 1];
-  var start = entry == null
-      ? const TimeOfDay(hour: 9, minute: 0)
-      : TimeOfDay.fromDateTime(entry.startTime);
-  var end = entry == null
-      ? const TimeOfDay(hour: 10, minute: 0)
-      : TimeOfDay.fromDateTime(entry.endTime);
-  var scheduledDate = entry?.scheduledDate ?? initialDate ?? DateTime.now();
-  var repeatWeekly =
-      entry?.repeatWeekly ?? scheduleKind == TimetableKind.university;
-  var taskId = entry?.taskId;
-  var category = entry?.category ?? 'Activity';
-  await showDialog<void>(
+  await showModalBottomSheet<void>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(entry == null
-            ? scheduleKind == TimetableKind.personal
-                ? 'Add to personal timetable'
-                : 'Add class'
-            : scheduleKind == TimetableKind.personal
-                ? 'Edit activity'
-                : 'Edit class'),
-        content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-              controller: course,
-              decoration: InputDecoration(
-                  labelText: scheduleKind == TimetableKind.personal
-                      ? 'Activity name'
-                      : 'Course name')),
-          TextField(
-              controller: instructor,
-              decoration: InputDecoration(
-                  labelText: scheduleKind == TimetableKind.personal
-                      ? 'Notes (optional)'
-                      : 'Instructor')),
-          TextField(
-              controller: room,
-              decoration: InputDecoration(
-                  labelText: scheduleKind == TimetableKind.personal
-                      ? 'Place (optional)'
-                      : 'Room')),
-          if (scheduleKind == TimetableKind.personal) ...[
-            DropdownButtonFormField<String>(
-              value: category,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const [
-                'Activity',
-                'Study',
-                'Appointment',
-                'Work',
-                'Task',
-                'Roadmap'
-              ]
-                  .map((value) =>
-                      DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => category = value ?? 'Activity'),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String?>(
-              value: taskId,
-              decoration: const InputDecoration(
-                  labelText: 'Link an existing task (optional)'),
-              items: [
-                const DropdownMenuItem<String?>(
-                    value: null, child: Text('No linked task')),
-                ...context.read<TaskController>().tasks.map((task) =>
-                    DropdownMenuItem<String?>(
-                        value: task.id,
-                        child:
-                            Text(task.title, overflow: TextOverflow.ellipsis))),
-              ],
-              onChanged: (value) => setState(() => taskId = value),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Repeat every week'),
-              value: repeatWeekly,
-              onChanged: (value) =>
-                  setState(() => repeatWeekly = value ?? false),
-            ),
-            if (!repeatWeekly)
-              TextButton.icon(
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: scheduledDate,
-                    firstDate:
-                        DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now().add(const Duration(days: 3650)),
-                  );
-                  if (date != null) {
-                    setState(() {
-                      scheduledDate = date;
-                      weekday = WeekdayExt.fromDartWeekday(date.weekday);
-                    });
-                  }
-                },
-                icon: const Icon(Icons.calendar_today_outlined),
-                label: Text(
-                    'Date: ${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}'),
-              ),
-          ],
-          DropdownButtonFormField<Weekday>(
-              value: weekday,
-              items: Weekday.values
-                  .map((day) =>
-                      DropdownMenuItem(value: day, child: Text(day.fullLabel)))
-                  .toList(),
-              onChanged: (value) => setState(() => weekday = value ?? weekday)),
-          Row(children: [
-            Expanded(
-                child: TextButton(
-                    onPressed: () async {
-                      final value = await showTimePicker(
-                          context: context, initialTime: start);
-                      if (value != null) setState(() => start = value);
-                    },
-                    child: Text('Start ${start.format(context)}'))),
-            Expanded(
-                child: TextButton(
-                    onPressed: () async {
-                      final value = await showTimePicker(
-                          context: context, initialTime: end);
-                      if (value != null) setState(() => end = value);
-                    },
-                    child: Text('End ${end.format(context)}'))),
-          ]),
-        ])),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () async {
-                final now = DateTime.now();
-                try {
-                  final startTime = DateTime(
-                      now.year, now.month, now.day, start.hour, start.minute);
-                  final endTime = DateTime(
-                      now.year, now.month, now.day, end.hour, end.minute);
-                  final controller = context.read<TimetableController>();
-                  if (entry == null) {
-                    await controller.add(
-                      courseName: course.text,
-                      instructor: instructor.text,
-                      weekday: weekday,
-                      scheduleKind: scheduleKind,
-                      scheduledDate: scheduleKind == TimetableKind.personal &&
-                              !repeatWeekly
-                          ? scheduledDate
-                          : null,
-                      repeatWeekly: repeatWeekly,
-                      taskId: taskId,
-                      category: scheduleKind == TimetableKind.personal
-                          ? category
-                          : null,
-                      startTime: startTime,
-                      endTime: endTime,
-                      room: room.text,
-                    );
-                  } else {
-                    await controller.update(TimetableEntry(
-                      id: entry.id,
-                      courseName: course.text.trim(),
-                      instructor: instructor.text.trim(),
-                      weekday: weekday,
-                      scheduleKind: entry.scheduleKind,
-                      startTime: startTime,
-                      endTime: endTime,
-                      room: room.text.trim().isEmpty ? null : room.text.trim(),
-                      colorValue: entry.colorValue,
-                      scheduledDate: scheduleKind == TimetableKind.personal &&
-                              !repeatWeekly
-                          ? scheduledDate
-                          : null,
-                      repeatWeekly: repeatWeekly,
-                      taskId: taskId,
-                      category: scheduleKind == TimetableKind.personal
-                          ? category
-                          : null,
-                    ));
-                  }
-                  if (dialogContext.mounted) {
-                    Navigator.pop(dialogContext);
-                  }
-                } catch (error) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error.toString())));
-                  }
-                }
-              },
-              child: Text(entry == null ? 'Add class' : 'Save changes')),
-        ],
-      ),
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => _TimetableEditorSheet(
+      entry: entry,
+      initialWeekday: initialWeekday,
+      initialDate: initialDate,
+      scheduleKind: scheduleKind,
     ),
   );
-  course.dispose();
-  instructor.dispose();
-  room.dispose();
+}
+
+const List<Color> _kTimetableColors = [
+  Color(0xFF1E3A8A), // deep navy
+  Color(0xFF4F46E5), // indigo
+  Color(0xFF0D9488), // teal
+  Color(0xFFF59E0B), // amber
+  Color(0xFFF472B6), // pink
+  Color(0xFF059669), // emerald
+  Color(0xFFFB7185), // coral-rose
+  Color(0xFF7C3AED), // violet
+  Color(0xFFEF4444), // red
+];
+
+class _TimetableEditorSheet extends StatefulWidget {
+  final TimetableEntry? entry;
+  final Weekday? initialWeekday;
+  final DateTime? initialDate;
+  final TimetableKind scheduleKind;
+
+  const _TimetableEditorSheet({
+    this.entry,
+    this.initialWeekday,
+    this.initialDate,
+    required this.scheduleKind,
+  });
+
+  @override
+  State<_TimetableEditorSheet> createState() => _TimetableEditorSheetState();
+}
+
+class _TimetableEditorSheetState extends State<_TimetableEditorSheet> {
+  late TextEditingController _course;
+  late TextEditingController _instructor;
+  late TextEditingController _room;
+  late Weekday _weekday;
+  late TimeOfDay _start;
+  late TimeOfDay _end;
+  late DateTime _scheduledDate;
+  late bool _repeatWeekly;
+  String? _taskId;
+  late int _selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _course = TextEditingController(text: widget.entry?.courseName);
+    _instructor = TextEditingController(text: widget.entry?.instructor);
+    _room = TextEditingController(text: widget.entry?.room);
+    _weekday = widget.entry?.weekday ??
+        widget.initialWeekday ??
+        Weekday.values[DateTime.now().weekday - 1];
+    _start = widget.entry == null
+        ? const TimeOfDay(hour: 9, minute: 0)
+        : TimeOfDay.fromDateTime(widget.entry!.startTime);
+    _end = widget.entry == null
+        ? const TimeOfDay(hour: 10, minute: 0)
+        : TimeOfDay.fromDateTime(widget.entry!.endTime);
+    _scheduledDate =
+        widget.entry?.scheduledDate ?? widget.initialDate ?? DateTime.now();
+    _repeatWeekly =
+        widget.entry?.repeatWeekly ?? widget.scheduleKind == TimetableKind.university;
+    _taskId = widget.entry?.taskId;
+    // ignore: deprecated_member_use
+    _selectedColor = widget.entry?.colorValue ?? _kTimetableColors[0].value;
+  }
+
+  @override
+  void dispose() {
+    _course.dispose();
+    _instructor.dispose();
+    _room.dispose();
+    super.dispose();
+  }
+
+  void _save() async {
+    if (_course.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text(
+          'Please enter a name',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.textPrimary,
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      ));
+      return;
+    }
+    final now = DateTime.now();
+    final startTime = DateTime(
+        now.year, now.month, now.day, _start.hour, _start.minute);
+    final endTime =
+        DateTime(now.year, now.month, now.day, _end.hour, _end.minute);
+    final controller = context.read<TimetableController>();
+
+    try {
+      if (widget.entry == null) {
+        await controller.add(
+          courseName: _course.text.trim(),
+          instructor: _instructor.text.trim(),
+          weekday: _weekday,
+          scheduleKind: widget.scheduleKind,
+          scheduledDate: widget.scheduleKind == TimetableKind.personal && !_repeatWeekly
+              ? _scheduledDate
+              : null,
+          repeatWeekly: _repeatWeekly,
+          taskId: _taskId,
+          colorValue: _selectedColor,
+          startTime: startTime,
+          endTime: endTime,
+          room: _room.text.trim(),
+        );
+      } else {
+        await controller.update(TimetableEntry(
+          id: widget.entry!.id,
+          courseName: _course.text.trim(),
+          instructor: _instructor.text.trim(),
+          weekday: _weekday,
+          scheduleKind: widget.entry!.scheduleKind,
+          startTime: startTime,
+          endTime: endTime,
+          room: _room.text.trim().isEmpty ? null : _room.text.trim(),
+          colorValue: _selectedColor,
+          scheduledDate: widget.scheduleKind == TimetableKind.personal && !_repeatWeekly
+              ? _scheduledDate
+              : null,
+          repeatWeekly: _repeatWeekly,
+          taskId: _taskId,
+          category: widget.entry!.category,
+        ));
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            e.toString(),
+            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: AppColors.textPrimary,
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isUni = widget.scheduleKind == TimetableKind.university;
+    final titleText = widget.entry == null
+        ? (isUni ? 'Add Class' : 'Add Activity')
+        : (isUni ? 'Edit Class' : 'Edit Activity');
+
+    final mq = MediaQuery.of(context);
+    final viewInsets = mq.viewInsets.bottom;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        margin: EdgeInsets.only(top: mq.padding.top + 40),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      titleText,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: const Text('Cancel',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Scrollable Body
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, viewInsets + 100),
+                  children: [
+                    // Title Input
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _course,
+                        style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.5,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: isUni ? 'Course name' : 'Activity name',
+                          hintStyle: TextStyle(
+                              color: AppColors.textSecondaryOpacity(0.4)),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Color Selection
+                    const Text('COLOR',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                            color: AppColors.textSecondary)),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.none,
+                      child: Row(
+                        children: _kTimetableColors.map((color) {
+                          // ignore: deprecated_member_use
+                          final isSelected = _selectedColor == color.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: GestureDetector(
+                              // ignore: deprecated_member_use
+                              onTap: () => setState(() => _selectedColor = color.value),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: isSelected
+                                      ? Border.all(color: AppColors.textPrimary, width: 3)
+                                      : null,
+                                  boxShadow: isSelected
+                                      ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4))]
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Day & Time
+                    const Text('WHEN',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                            color: AppColors.textSecondary)),
+                    const SizedBox(height: 12),
+
+                    // Day Selector
+                    if (isUni || _repeatWeekly) ...[
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        child: Row(
+                          children: Weekday.values.map((day) {
+                            final isSelected = _weekday == day;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () => setState(() => _weekday = day),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 44,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? AppColors.textPrimary : AppColors.surface,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: isSelected ? AppColors.textPrimary : AppColors.divider),
+                                  ),
+                                  child: Text(
+                                    day.fullLabel.substring(0, 1),
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                        color: isSelected ? Colors.white : AppColors.textSecondary),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    if (!isUni) ...[
+                      GestureDetector(
+                        onTap: () => setState(() => _repeatWeekly = !_repeatWeekly),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: _repeatWeekly ? AppColors.action : AppColors.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: _repeatWeekly ? AppColors.action : AppColors.divider),
+                              ),
+                              child: _repeatWeekly
+                                  ? const Center(
+                                      child: Text('✓',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12)))
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Repeat every week',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (!_repeatWeekly) ...[
+                        GestureDetector(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: _scheduledDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                              lastDate: DateTime.now().add(const Duration(days: 3650)),
+                            );
+                            if (date != null) {
+                              setState(() {
+                                _scheduledDate = date;
+                                _weekday = WeekdayExt.fromDartWeekday(date.weekday);
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.divider),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                    'Date',
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondaryOpacity(0.8))),
+                                Text(
+                                  '${_scheduledDate.year}-${_scheduledDate.month.toString().padLeft(2, '0')}-${_scheduledDate.day.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
+
+                    // Time Selectors
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final value = await showTimePicker(
+                                  context: context, initialTime: _start);
+                              if (value != null) setState(() => _start = value);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: AppColors.divider),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Start',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondaryOpacity(0.7))),
+                                  const SizedBox(height: 4),
+                                  Text(_start.format(context),
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.textPrimary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final value = await showTimePicker(
+                                  context: context, initialTime: _end);
+                              if (value != null) setState(() => _end = value);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: AppColors.divider),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('End',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondaryOpacity(0.7))),
+                                  const SizedBox(height: 4),
+                                  Text(_end.format(context),
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.textPrimary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Details
+                    const Text('DETAILS',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                            color: AppColors.textSecondary)),
+                    const SizedBox(height: 12),
+
+                    // Location Input
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: TextField(
+                        controller: _room,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: isUni ? 'Location or Room' : 'Place (optional)',
+                          hintStyle: TextStyle(
+                              color: AppColors.textSecondaryOpacity(0.6)),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Notes / Instructor Input
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: TextField(
+                        controller: _instructor,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: isUni ? 'Instructor' : 'Notes (optional)',
+                          hintStyle: TextStyle(
+                              color: AppColors.textSecondaryOpacity(0.6)),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Linked Task (Personal only)
+                    if (!isUni) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _taskId,
+                            isExpanded: true,
+                            hint: Text('Link a task (optional)',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondaryOpacity(0.6))),
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                  value: null, child: Text('No linked task')),
+                              ...context.read<TaskController>().tasks.map((task) =>
+                                  DropdownMenuItem<String?>(
+                                      value: task.id,
+                                      child: Text(task.title,
+                                          overflow: TextOverflow.ellipsis))),
+                            ],
+                            onChanged: (value) => setState(() => _taskId = value),
+                          ),
+                        ),
+                      ),
+                    ],
+              // Floating Save Button
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(24, 16, 24, viewInsets > 0 ? viewInsets + 16 : 24),
+                        child: GestureDetector(
+                          onTap: _save,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            decoration: BoxDecoration(
+                              color: Color(_selectedColor),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(color: Color(_selectedColor).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              widget.entry == null ? 'Create ${isUni ? 'class' : 'activity'}' : 'Save changes',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

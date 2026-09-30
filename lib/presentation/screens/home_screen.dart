@@ -14,7 +14,7 @@ import 'package:todow/presentation/controllers/timetable_controller.dart';
 import 'package:todow/presentation/controllers/app_controller.dart';
 import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
-import 'package:todow/presentation/widgets/timetable_editor.dart';
+import 'package:todow/presentation/screens/timetable_screen.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todow/domain/models/query.dart';
@@ -170,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border:
-                  Border.all(color: AppColors.action.withValues(alpha: 0.28)),
+                  Border.all(color: AppColors.divider),
               boxShadow: const [_softShadow]),
           child: classes.isEmpty
               ? Padding(
@@ -189,17 +189,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : Column(
                   children: [
-                    SizedBox(
-                      height: (classes.length * 62.0).clamp(62.0, 220.0),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        itemCount: classes.length,
-                        itemBuilder: (context, index) => _TodayClassRow(
-                          entry: classes[index],
-                          primary: index == highlighted,
-                          onTap: () => showTimetableEditor(context,
-                              entry: classes[index]),
-                        ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      itemCount: classes.length,
+                      itemBuilder: (context, index) => _TodayClassRow(
+                        entry: classes[index],
+                        primary: index == highlighted,
+                        // onTap removed
+                        // entry removed
                       ),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -1765,52 +1764,124 @@ class _TodayTaskRow extends StatelessWidget {
   final VoidCallback onComplete;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(task.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 3),
-                    Text('Due ${AppDateFormat.time(task.dueAt!)}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
-                  ],
-                ),
+  Widget build(BuildContext context) {
+    Color priorityColor;
+    String priorityLabel;
+    switch (task.priority) {
+      case TaskPriority.high:
+        priorityColor = AppColors.alert;
+        priorityLabel = 'High';
+        break;
+      case TaskPriority.medium:
+        priorityColor = AppColors.attention;
+        priorityLabel = 'Medium';
+        break;
+      case TaskPriority.low:
+      default:
+        priorityColor = AppColors.action;
+        priorityLabel = 'Low';
+        break;
+    }
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          task.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                              color: AppColors.textPrimary),
+                        ),
+                      ),
+                      if (task.priority == TaskPriority.high || task.priority == TaskPriority.medium)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: priorityColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            priorityLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: priorityColor),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.schedule, size: 14, color: AppColors.textSecondaryOpacity(0.8)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Due ${AppDateFormat.time(task.dueAt!)}',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondaryOpacity(0.9)),
+                      ),
+                      if (task.category != null && task.category!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text('·', style: TextStyle(color: AppColors.textSecondaryOpacity(0.6))),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            task.category!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondaryOpacity(0.9)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
-              IconButton(
-                onPressed: onComplete,
-                tooltip: 'Complete task',
-                icon:
-                    const Icon(Icons.circle_outlined, color: AppColors.action),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              onPressed: onComplete,
+              tooltip: 'Complete task',
+              icon: const Icon(Icons.circle_outlined, color: AppColors.action),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _TodayClassRow extends StatelessWidget {
   const _TodayClassRow({
     required this.entry,
     required this.primary,
-    required this.onTap,
+    // required this.onTap,
   });
 
   final TimetableEntry entry;
   final bool primary;
-  final VoidCallback onTap;
+  // final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1820,60 +1891,157 @@ class _TodayClassRow extends StatelessWidget {
     final end = DateTime(
         now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     final current = !now.isBefore(start) && now.isBefore(end);
-    return Material(
-      color: primary
-          ? Color.alphaBlend(
-              AppColors.action.withValues(alpha: 0.09), AppColors.surface)
-          : AppColors.surface,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+
+    final accentColor = getEntryColor(entry);
+
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                width: 72,
-                child: Text(AppDateFormat.time(entry.startTime),
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: primary ? FontWeight.w700 : FontWeight.w500,
-                        color: primary
-                            ? AppColors.action
-                            : AppColors.textSecondary)),
-              ),
-              Expanded(
+                width: 48,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(entry.courseName,
+                    Text(AppDateFormat.time(entry.startTime),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
                         style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                primary ? FontWeight.w700 : FontWeight.w500,
-                            color: AppColors.textPrimary)),
-                    if (entry.room?.trim().isNotEmpty == true)
-                      Text(entry.room!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: accentColor)),
+                    Expanded(
+                      child: Container(
+                        width: 3,
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [accentColor, accentColor.withValues(alpha: 0.15)],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Text(AppDateFormat.time(entry.endTime),
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              if (primary)
-                Text(current ? 'NOW' : 'NEXT',
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: AppColors.action)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.04),
+                      // removed
+                      // removed
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.15),
+                        // removed
+                        // removed
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(entry.courseName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                    color: AppColors.textPrimary)),
+                          ),
+                          if (current)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.decorNavy,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text('NOW',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                      color: Colors.white)),
+                            )
+                        ],
+                      ),
+                      if (entry.instructor.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(entry.instructor,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary)),
+                      ],
+                      const SizedBox(height: 8),
+                      if (entry.category != null && entry.category!.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              entry.category!,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: accentColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (entry.room?.trim().isNotEmpty == true) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            // Icon removed
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(entry.room!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textSecondaryOpacity(0.9))),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -26,11 +25,15 @@ const _kRoadmaps = [
 ];
 
 const _priorityMeta = {
-  TaskPriority.none:     (_PriorityMeta('None',     null,                  Color(0x00000000))),
-  TaskPriority.low:      (_PriorityMeta('Low',      Icons.arrow_downward_rounded, Color(0xFF22C55E))),
-  TaskPriority.medium:   (_PriorityMeta('Medium',   Icons.remove_rounded,         AppColors.attention)),
-  TaskPriority.high:     (_PriorityMeta('High',     Icons.arrow_upward_rounded,   Color(0xFFF97316))),
-  TaskPriority.critical: (_PriorityMeta('Critical', Icons.local_fire_department_rounded, AppColors.alert)),
+  TaskPriority.none: (_PriorityMeta('None', null, Color(0x00000000))),
+  TaskPriority.low:
+      (_PriorityMeta('Low', Icons.arrow_downward_rounded, Color(0xFF22C55E))),
+  TaskPriority.medium:
+      (_PriorityMeta('Medium', Icons.remove_rounded, AppColors.attention)),
+  TaskPriority.high:
+      (_PriorityMeta('High', Icons.arrow_upward_rounded, Color(0xFFF97316))),
+  TaskPriority.critical: (_PriorityMeta(
+      'Critical', Icons.local_fire_department_rounded, AppColors.alert)),
 };
 
 class _PriorityMeta {
@@ -64,6 +67,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
   Roadmap? _roadmap;
   late List<Subtask> _subtasks;
   late ReminderPlan _reminderPlan;
+  bool _isAddingToPersonalTimetable = false;
+  bool _isOnPersonalTimetable = false;
   bool _canPop = false;
 
   // Expansion state for progressive disclosure
@@ -81,20 +86,28 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
   void initState() {
     super.initState();
     _workingTask = widget.task;
-    _title    = TextEditingController(text: _workingTask?.title ?? '');
-    _notes    = TextEditingController(text: _workingTask?.description ?? '');
+    final taskId = _workingTask?.id;
+    _isOnPersonalTimetable = taskId != null &&
+        context.read<TimetableController>().entries.any(
+              (entry) =>
+                  entry.taskId == taskId &&
+                  entry.scheduleKind == TimetableKind.personal,
+            );
+    _title = TextEditingController(text: _workingTask?.title ?? '');
+    _notes = TextEditingController(text: _workingTask?.description ?? '');
     _priority = _workingTask?.priority ?? TaskPriority.none;
-    _dueAt    = _workingTask?.dueAt;
+    _dueAt = _workingTask?.dueAt;
     _roadmaps = List.of(_kRoadmaps);
     final cat = _workingTask?.category ?? _kRoadmaps.first;
     if (!_roadmaps.contains(cat)) _roadmaps.add(cat);
     _selectedRoadmap = cat;
-    _subtasks    = List.of(_workingTask?.subtasks ?? []);
-    _reminderPlan = _workingTask?.reminderPlan ?? ReminderPlan(
-      preset: ReminderPreset.normal,
-      offsets: ReminderPresets.forPreset(ReminderPreset.normal),
-      constantReminder: false,
-    );
+    _subtasks = List.of(_workingTask?.subtasks ?? []);
+    _reminderPlan = _workingTask?.reminderPlan ??
+        ReminderPlan(
+          preset: ReminderPreset.normal,
+          offsets: ReminderPresets.forPreset(ReminderPreset.normal),
+          constantReminder: false,
+        );
 
     _titleGrowCtrl = AnimationController(
       vsync: this,
@@ -104,15 +117,16 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
 
     // Pre-expand sections if editing
     if (_workingTask != null) {
-      _schedExpanded     = _dueAt != null;
-      _priorityExpanded  = _priority != TaskPriority.none;
+      _schedExpanded = _dueAt != null;
+      _priorityExpanded = _priority != TaskPriority.none;
       _remindersExpanded = true;
-      _subtasksExpanded  = _subtasks.isNotEmpty;
-      _notesExpanded     = (_workingTask?.description ?? '').isNotEmpty;
+      _subtasksExpanded = _subtasks.isNotEmpty;
+      _notesExpanded = (_workingTask?.description ?? '').isNotEmpty;
     }
   }
 
-  bool get _isRoadmapTask => widget.topicId != null || _workingTask?.topicId != null;
+  bool get _isRoadmapTask =>
+      widget.topicId != null || _workingTask?.topicId != null;
 
   Future<void> _loadRoadmapContext() async {
     final topicId = widget.topicId ?? _workingTask?.topicId;
@@ -121,7 +135,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     }
     final controller = context.read<RoadmapController>();
     final topic = await controller.getTopic(topicId);
-    final roadmap = topic == null ? null : await controller.getRoadmap(topic.roadmapId);
+    final roadmap =
+        topic == null ? null : await controller.getRoadmap(topic.roadmapId);
     if (mounted) {
       setState(() {
         _roadmapTopic = topic;
@@ -150,21 +165,26 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
   bool _isQuickDate(int days) {
     if (_dueAt == null) return false;
     final t = DateTime.now().add(Duration(days: days));
-    return _dueAt!.year == t.year && _dueAt!.month == t.month && _dueAt!.day == t.day;
+    return _dueAt!.year == t.year &&
+        _dueAt!.month == t.month &&
+        _dueAt!.day == t.day;
   }
 
   Future<void> _pickDate() async {
     final d = await showDatePicker(
       context: context,
       initialDate: _dueAt ?? DateTime.now(),
-      firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+      firstDate: DateTime(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
       builder: _datePkrTheme,
     );
     if (d == null || !mounted) return;
     final t = await showTimePicker(
       context: context,
-      initialTime: _dueAt != null ? TimeOfDay.fromDateTime(_dueAt!) : const TimeOfDay(hour: 9, minute: 0),
+      initialTime: _dueAt != null
+          ? TimeOfDay.fromDateTime(_dueAt!)
+          : const TimeOfDay(hour: 9, minute: 0),
       builder: _datePkrTheme,
     );
     setState(() {
@@ -175,104 +195,145 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
   }
 
   Widget _datePkrTheme(BuildContext ctx, Widget? child) => Theme(
-    data: ThemeData.light().copyWith(
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.action,
-        onPrimary: AppColors.surface,
-        surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
-      ),
-    ),
-    child: child!,
-  );
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.action,
+            onPrimary: AppColors.surface,
+            surface: AppColors.surface,
+            onSurface: AppColors.textPrimary,
+          ),
+        ),
+        child: child!,
+      );
 
   String _fmtDate(DateTime d) {
-    const days   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    final h = d.hour; final m = d.minute;
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final h = d.hour;
+    final m = d.minute;
     final ampm = h >= 12 ? 'PM' : 'AM';
-    final h12  = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+    final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
     final mStr = m.toString().padLeft(2, '0');
-    return '${days[d.weekday-1]}, ${months[d.month-1]} ${d.day} · $h12:$mStr $ampm';
+    return '${days[d.weekday - 1]}, ${months[d.month - 1]} ${d.day} · $h12:$mStr $ampm';
   }
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<Task> _autoSave() async {
     if (_workingTask != null) return _workingTask!;
-    final tc  = context.read<TaskController>();
+    final tc = context.read<TaskController>();
     final ttl = _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim();
     final task = await tc.createTask(
-      title: ttl, description: _notes.text.trim(), priority: _priority,
-      dueAt: _dueAt, category: _isRoadmapTask ? null : _selectedRoadmap,
+      title: ttl,
+      description: _notes.text.trim(),
+      priority: _priority,
+      dueAt: _dueAt,
+      category: _isRoadmapTask ? null : _selectedRoadmap,
       topicId: widget.topicId ?? _workingTask?.topicId,
-      subtasks: _subtasks, reminderPlan: _reminderPlan,
+      subtasks: _subtasks,
+      reminderPlan: _reminderPlan,
     );
-    setState(() { _workingTask = task; if (_title.text.trim().isEmpty) _title.text = 'Untitled'; });
+    setState(() {
+      _workingTask = task;
+      if (_title.text.trim().isEmpty) _title.text = 'Untitled';
+    });
     return task;
   }
 
   Future<void> _addToPersonalTimetable() async {
+    if (_isAddingToPersonalTimetable || _isOnPersonalTimetable) return;
     if (_title.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Add a task name before scheduling it.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Add a task name before scheduling it.',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.textPrimary,
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       ));
       return;
     }
-    final date = _dueAt ?? await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-    );
+    final date = _dueAt ??
+        await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime.now(),
+          lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+        );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: const TimeOfDay(hour: 9, minute: 0),
     );
     if (time == null || !mounted) return;
-    final taskController = context.read<TaskController>();
-    final task = _workingTask == null
-        ? await _autoSave()
-        : await taskController.updateTask(
-            _workingTask!.copyWith(
-              title: _title.text.trim(),
-              description: _notes.text.trim(),
-              priority: _priority,
-              dueAt: _dueAt,
-              clearDueAt: _dueAt == null,
-              category: _isRoadmapTask ? null : _selectedRoadmap,
-              topicId: widget.topicId,
-              subtasks: _subtasks,
-              reminderPlan: _reminderPlan,
-            ),
-          );
+    setState(() => _isAddingToPersonalTimetable = true);
+    await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    setState(() => _workingTask = task);
-    final timetable = context.read<TimetableController>();
-    if (timetable.entries.any((entry) => entry.taskId == task.id)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('This task is already on your personal timetable.'),
-      ));
-      return;
-    }
-    final start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    await timetable.add(
-      courseName: task.title,
-      instructor: task.description,
-      weekday: WeekdayExt.fromDartWeekday(date.weekday),
-      startTime: start,
-      endTime: start.add(const Duration(hours: 1)),
-      scheduleKind: TimetableKind.personal,
-      scheduledDate: date,
-      repeatWeekly: false,
-      category: task.topicId == null ? 'Task' : 'Roadmap',
-      taskId: task.id,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Task added to your personal timetable.'),
-      ));
+    try {
+      final taskController = context.read<TaskController>();
+      final task = _workingTask == null
+          ? await _autoSave()
+          : await taskController.updateTask(
+              _workingTask!.copyWith(
+                title: _title.text.trim(),
+                description: _notes.text.trim(),
+                priority: _priority,
+                dueAt: _dueAt,
+                clearDueAt: _dueAt == null,
+                category: _isRoadmapTask ? null : _selectedRoadmap,
+                topicId: widget.topicId,
+                subtasks: _subtasks,
+                reminderPlan: _reminderPlan,
+              ),
+            );
+      if (!mounted) return;
+      setState(() => _workingTask = task);
+      final timetable = context.read<TimetableController>();
+      final alreadyScheduled = timetable.entries.any(
+        (entry) =>
+            entry.taskId == task.id &&
+            entry.scheduleKind == TimetableKind.personal,
+      );
+      if (!alreadyScheduled) {
+        final start =
+            DateTime(date.year, date.month, date.day, time.hour, time.minute);
+        await timetable.add(
+          courseName: task.title,
+          instructor: task.description,
+          weekday: WeekdayExt.fromDartWeekday(date.weekday),
+          startTime: start,
+          endTime: start.add(const Duration(hours: 1)),
+          scheduleKind: TimetableKind.personal,
+          scheduledDate: date,
+          repeatWeekly: false,
+          category: task.topicId == null ? 'Task' : 'Roadmap',
+          taskId: task.id,
+        );
+      }
+      if (mounted) setState(() => _isOnPersonalTimetable = true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content:
+              Text('Could not add this task to your timetable. Try again.'),
+        ));
+    } finally {
+      if (mounted) setState(() => _isAddingToPersonalTimetable = false);
     }
   }
 
@@ -281,17 +342,26 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       final tc = context.read<TaskController>();
       if (_workingTask == null) {
         tc.createTask(
-          title: _title.text.trim(), description: _notes.text.trim(), priority: _priority,
-          dueAt: _dueAt, category: _isRoadmapTask ? null : _selectedRoadmap,
+          title: _title.text.trim(),
+          description: _notes.text.trim(),
+          priority: _priority,
+          dueAt: _dueAt,
+          category: _isRoadmapTask ? null : _selectedRoadmap,
           topicId: widget.topicId,
-          subtasks: _subtasks, reminderPlan: _reminderPlan,
+          subtasks: _subtasks,
+          reminderPlan: _reminderPlan,
         );
       } else {
         tc.updateTask(_workingTask!.copyWith(
-          title: _title.text.trim(), description: _notes.text.trim(), priority: _priority,
-          dueAt: _dueAt, clearDueAt: _dueAt == null, category: _isRoadmapTask ? null : _selectedRoadmap,
+          title: _title.text.trim(),
+          description: _notes.text.trim(),
+          priority: _priority,
+          dueAt: _dueAt,
+          clearDueAt: _dueAt == null,
+          category: _isRoadmapTask ? null : _selectedRoadmap,
           topicId: widget.topicId,
-          subtasks: _subtasks, reminderPlan: _reminderPlan,
+          subtasks: _subtasks,
+          reminderPlan: _reminderPlan,
         ));
       }
     }
@@ -315,24 +385,39 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: AppColors.surface,
-        title: const Text('New Project', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        title: const Text('New Project',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         content: TextField(
-          controller: ctrl, autofocus: true,
+          controller: ctrl,
+          autofocus: true,
           decoration: InputDecoration(
             hintText: 'Project name',
-            hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5)),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.divider)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.action)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            hintStyle: TextStyle(
+                color: AppColors.textSecondary.withValues(alpha: 0.5)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.divider)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.divider)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.action)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, foregroundColor: AppColors.surface, shape: const StadiumBorder()),
-            child: const Text('Add', style: TextStyle(fontWeight: FontWeight.w600)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.action,
+                foregroundColor: AppColors.surface,
+                shape: const StadiumBorder()),
+            child: const Text('Add',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -349,12 +434,14 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isNew    = _workingTask == null;
+    final isNew = _workingTask == null;
     final hasTitle = _title.text.trim().isNotEmpty;
 
     return PopScope(
       canPop: _canPop,
-      onPopInvokedWithResult: (did, _) { if (!did) _save(); },
+      onPopInvokedWithResult: (did, _) {
+        if (!did) _save();
+      },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
@@ -385,7 +472,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                         decoration: BoxDecoration(
                           color: AppColors.surfaceElevated,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+                          border: Border.all(
+                              color: AppColors.divider.withValues(alpha: 0.6)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +495,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                                 hintStyle: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textSecondary.withValues(alpha: 0.3),
+                                  color: AppColors.textSecondary
+                                      .withValues(alpha: 0.3),
                                   letterSpacing: -0.5,
                                   height: 1.2,
                                 ),
@@ -441,22 +530,6 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                         ),
                       ),
 
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-                      child: OutlinedButton.icon(
-                        onPressed: _addToPersonalTimetable,
-                        icon: const Icon(Icons.calendar_month_outlined),
-                        label: const Text('Add to personal timetable'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.decorNavy,
-                          backgroundColor: AppColors.surface,
-                          side: const BorderSide(color: Color(0xFFD6DDF0)),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                      ),
-                    ),
-
                     const SizedBox(height: 28),
 
                     // ── Quick-access control strip ───────────────────────
@@ -464,7 +537,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                       dueAt: _dueAt,
                       priority: _priority,
                       project: _selectedRoadmap,
-                      remindersOn: _reminderPlan.allOffsets.isNotEmpty || _reminderPlan.constantReminder,
+                      remindersOn: _reminderPlan.allOffsets.isNotEmpty ||
+                          _reminderPlan.constantReminder,
                       subtaskCount: _subtasks.length,
                       showProject: !_isRoadmapTask,
                       schedExpanded: _schedExpanded,
@@ -472,11 +546,16 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                       projectExpanded: _projectExpanded,
                       remindersExpanded: _remindersExpanded,
                       subtasksExpanded: _subtasksExpanded,
-                      onSchedTap: () => setState(() => _schedExpanded = !_schedExpanded),
-                      onPriorityTap: () => setState(() => _priorityExpanded = !_priorityExpanded),
-                      onProjectTap: () => setState(() => _projectExpanded = !_projectExpanded),
-                      onRemindersTap: () => setState(() => _remindersExpanded = !_remindersExpanded),
-                      onSubtasksTap: () => setState(() => _subtasksExpanded = !_subtasksExpanded),
+                      onSchedTap: () =>
+                          setState(() => _schedExpanded = !_schedExpanded),
+                      onPriorityTap: () => setState(
+                          () => _priorityExpanded = !_priorityExpanded),
+                      onProjectTap: () =>
+                          setState(() => _projectExpanded = !_projectExpanded),
+                      onRemindersTap: () => setState(
+                          () => _remindersExpanded = !_remindersExpanded),
+                      onSubtasksTap: () => setState(
+                          () => _subtasksExpanded = !_subtasksExpanded),
                     ),
 
                     // ── Scheduling panel ─────────────────────────────────
@@ -510,18 +589,19 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                     // ── Project panel ────────────────────────────────────
                     if (!_isRoadmapTask)
                       _AnimatedSection(
-                      visible: _projectExpanded,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                        child: _ProjectPanel(
-                          roadmaps: _roadmaps,
-                          selected: _selectedRoadmap,
-                          colorFor: _projectColor,
-                          onSelect: (r) => setState(() => _selectedRoadmap = r),
-                          onAdd: _addNewProject,
+                        visible: _projectExpanded,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                          child: _ProjectPanel(
+                            roadmaps: _roadmaps,
+                            selected: _selectedRoadmap,
+                            colorFor: _projectColor,
+                            onSelect: (r) =>
+                                setState(() => _selectedRoadmap = r),
+                            onAdd: _addNewProject,
+                          ),
                         ),
                       ),
-                    ),
 
                     // ── Reminders panel ──────────────────────────────────
                     _AnimatedSection(
@@ -567,7 +647,114 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                     // ── Attachments ──────────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                      child: AttachmentsSection(task: _workingTask, onAutoSave: _autoSave),
+                      child: AttachmentsSection(
+                          task: _workingTask, onAutoSave: _autoSave),
+                    ),
+
+                    // ── Add to personal timetable ────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      child: Semantics(
+                        button: true,
+                        enabled: !_isAddingToPersonalTimetable &&
+                            !_isOnPersonalTimetable,
+                        label: _isOnPersonalTimetable
+                            ? 'Added to personal timetable'
+                            : 'Add to personal timetable',
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Material(
+                            color: AppColors.surface,
+                            child: InkWell(
+                              onTap: _isAddingToPersonalTimetable ||
+                                      _isOnPersonalTimetable
+                                  ? null
+                                  : _addToPersonalTimetable,
+                              child: SizedBox(
+                                height: 52,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    TweenAnimationBuilder<double>(
+                                      tween: Tween(
+                                        begin: 0,
+                                        end: _isOnPersonalTimetable
+                                            ? 1
+                                            : _isAddingToPersonalTimetable
+                                                ? 0.72
+                                                : 0,
+                                      ),
+                                      duration:
+                                          const Duration(milliseconds: 520),
+                                      curve: Curves.easeOutCubic,
+                                      builder: (context, progress, child) =>
+                                          Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: FractionallySizedBox(
+                                          widthFactor: progress,
+                                          heightFactor: 1,
+                                          child: child,
+                                        ),
+                                      ),
+                                      child: const ColoredBox(
+                                          color: AppColors.action),
+                                    ),
+                                    Center(
+                                      child: AnimatedSwitcher(
+                                        duration:
+                                            const Duration(milliseconds: 220),
+                                        transitionBuilder: (child, animation) =>
+                                            FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0, 0.2),
+                                              end: Offset.zero,
+                                            ).animate(animation),
+                                            child: child,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _isOnPersonalTimetable
+                                              ? 'Added to personal timetable'
+                                              : _isAddingToPersonalTimetable
+                                                  ? 'Adding to timetable…'
+                                                  : 'Add to personal timetable',
+                                          key: ValueKey((
+                                            _isOnPersonalTimetable,
+                                            _isAddingToPersonalTimetable,
+                                          )),
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(24),
+                                            border: Border.all(
+                                              color:
+                                                  AppColors.action.withValues(
+                                                alpha: 0.3,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 120),
@@ -583,18 +770,24 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               decoration: BoxDecoration(
                 color: AppColors.background,
-                border: Border(top: BorderSide(color: AppColors.divider.withValues(alpha: 0.6), width: 1)),
+                border: Border(
+                    top: BorderSide(
+                        color: AppColors.divider.withValues(alpha: 0.6),
+                        width: 1)),
               ),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 child: ElevatedButton(
                   onPressed: hasTitle ? _save : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: hasTitle ? AppColors.action : AppColors.divider,
-                    foregroundColor: hasTitle ? AppColors.surface : AppColors.textSecondary,
+                    backgroundColor:
+                        hasTitle ? AppColors.action : AppColors.divider,
+                    foregroundColor:
+                        hasTitle ? AppColors.surface : AppColors.textSecondary,
                     disabledBackgroundColor: AppColors.divider,
                     minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
                     elevation: 0,
                   ),
                   child: AnimatedDefaultTextStyle(
@@ -602,7 +795,9 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: hasTitle ? AppColors.surface : AppColors.textSecondary,
+                      color: hasTitle
+                          ? AppColors.surface
+                          : AppColors.textSecondary,
                     ),
                     child: Text(isNew ? 'Create task' : 'Save changes'),
                   ),
@@ -627,7 +822,8 @@ class _RoadmapTaskContext extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Roadmap context, $roadmap, $topic. This task stays in this Topic.',
+      label:
+          'Roadmap context, $roadmap, $topic. This task stays in this Topic.',
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -643,13 +839,24 @@ class _RoadmapTaskContext extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(roadmap, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  Text(roadmap,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
                   const SizedBox(height: 2),
-                  Text(topic, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  Text(topic,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
             ),
-            const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.action),
+            const Icon(Icons.lock_outline_rounded,
+                size: 18, color: AppColors.action),
           ],
         ),
       ),
@@ -689,15 +896,20 @@ class _CurvedHeader extends StatelessWidget {
                   GestureDetector(
                     onTap: onClose,
                     child: Container(
-                      width: 32, height: 32,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         shape: BoxShape.circle,
                         boxShadow: const [
-                          BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2)),
+                          BoxShadow(
+                              color: Color(0x14000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 2)),
                         ],
                       ),
-                      child: const Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                      child: const Icon(Icons.close,
+                          size: 16, color: AppColors.textSecondary),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -713,7 +925,8 @@ class _CurvedHeader extends StatelessWidget {
                   const Spacer(),
                   Icon(
                     isRoadmapTask ? Icons.lock_outline_rounded : Icons.circle,
-                    color: isRoadmapTask ? AppColors.action : AppColors.attention,
+                    color:
+                        isRoadmapTask ? AppColors.action : AppColors.attention,
                     size: isRoadmapTask ? 16 : 8,
                   ),
                   const SizedBox(width: 8),
@@ -740,11 +953,13 @@ class _CurvedPanelPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = AppColors.surfaceElevated;
-    final path  = Path()
+    final path = Path()
       ..lineTo(size.width, 0)
       ..lineTo(size.width, size.height - 20)
-      ..quadraticBezierTo(size.width * 0.75, size.height, size.width * 0.5, size.height - 4)
-      ..quadraticBezierTo(size.width * 0.25, size.height - 8, 0, size.height - 20)
+      ..quadraticBezierTo(
+          size.width * 0.75, size.height, size.width * 0.5, size.height - 4)
+      ..quadraticBezierTo(
+          size.width * 0.25, size.height - 8, 0, size.height - 20)
       ..close();
     canvas.drawPath(path, paint);
   }
@@ -781,8 +996,16 @@ class _ControlStrip extends StatelessWidget {
   final bool remindersOn;
   final int subtaskCount;
   final bool showProject;
-  final bool schedExpanded, priorityExpanded, projectExpanded, remindersExpanded, subtasksExpanded;
-  final VoidCallback onSchedTap, onPriorityTap, onProjectTap, onRemindersTap, onSubtasksTap;
+  final bool schedExpanded,
+      priorityExpanded,
+      projectExpanded,
+      remindersExpanded,
+      subtasksExpanded;
+  final VoidCallback onSchedTap,
+      onPriorityTap,
+      onProjectTap,
+      onRemindersTap,
+      onSubtasksTap;
 
   @override
   Widget build(BuildContext context) {
@@ -802,9 +1025,13 @@ class _ControlStrip extends StatelessWidget {
           ),
           // Priority chip
           _StripChip(
-            label: priority == TaskPriority.none ? 'Priority' : 'Priority - ${meta.label}',
+            label: priority == TaskPriority.none
+                ? 'Priority'
+                : 'Priority - ${meta.label}',
             active: priorityExpanded || priority != TaskPriority.none,
-            activeColor: meta.color == const Color(0x00000000) ? AppColors.action : meta.color,
+            activeColor: meta.color == const Color(0x00000000)
+                ? AppColors.action
+                : meta.color,
             onTap: onPriorityTap,
           ),
           if (showProject)
@@ -823,7 +1050,9 @@ class _ControlStrip extends StatelessWidget {
           ),
           // Subtasks chip
           _StripChip(
-            label: subtaskCount > 0 ? '$subtaskCount subtask${subtaskCount == 1 ? '' : 's'}' : 'Subtasks',
+            label: subtaskCount > 0
+                ? '$subtaskCount subtask${subtaskCount == 1 ? '' : 's'}'
+                : 'Subtasks',
             active: subtasksExpanded || subtaskCount > 0,
             activeColor: AppColors.decorCoral,
             onTap: onSubtasksTap,
@@ -834,11 +1063,25 @@ class _ControlStrip extends StatelessWidget {
   }
 
   String _shortDate(DateTime d) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    final h = d.hour; final ampm = h >= 12 ? 'PM' : 'AM';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final h = d.hour;
+    final ampm = h >= 12 ? 'PM' : 'AM';
     final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
     final m = d.minute.toString().padLeft(2, '0');
-    return '${months[d.month-1]} ${d.day}, $h12:$m $ampm';
+    return '${months[d.month - 1]} ${d.day}, $h12:$m $ampm';
   }
 }
 
@@ -857,36 +1100,45 @@ class _StripChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? activeColor.withValues(alpha: 0.10) : AppColors.surface,
-        border: Border.all(
-          color: active ? activeColor.withValues(alpha: 0.35) : AppColors.divider,
-          width: active ? 1.5 : 1,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: active ? [] : const [
-          BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 1)),
-        ],
-      ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                color: active ? activeColor : AppColors.textSecondary,
-              ),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: active
+                ? activeColor.withValues(alpha: 0.10)
+                : AppColors.surface,
+            border: Border.all(
+              color: active
+                  ? activeColor.withValues(alpha: 0.35)
+                  : AppColors.divider,
+              width: active ? 1.5 : 1,
             ),
-          ],
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: active
+                ? []
+                : const [
+                    BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1)),
+                  ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  color: active ? activeColor : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
-    ),
-  );
+      );
 }
 
 // ── Animated section wrapper ──────────────────────────────────────────────────
@@ -898,14 +1150,15 @@ class _AnimatedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedCrossFade(
-    duration: const Duration(milliseconds: 220),
-    sizeCurve: Curves.easeInOutCubic,
-    firstCurve: Curves.easeOut,
-    secondCurve: Curves.easeIn,
-    crossFadeState: visible ? CrossFadeState.showFirst : CrossFadeState.showSecond,
-    firstChild: child,
-    secondChild: const SizedBox.shrink(),
-  );
+        duration: const Duration(milliseconds: 220),
+        sizeCurve: Curves.easeInOutCubic,
+        firstCurve: Curves.easeOut,
+        secondCurve: Curves.easeIn,
+        crossFadeState:
+            visible ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+        firstChild: child,
+        secondChild: const SizedBox.shrink(),
+      );
 }
 
 // ── Scheduling panel ──────────────────────────────────────────────────────────
@@ -934,7 +1187,10 @@ class _SchedulingPanel extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
-        boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 12, offset: Offset(0,4))],
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x08000000), blurRadius: 12, offset: Offset(0, 4))
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -965,7 +1221,9 @@ class _SchedulingPanel extends StatelessWidget {
                 const Spacer(),
                 GestureDetector(
                   onTap: onClear,
-                  child: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+                  child: Icon(Icons.close_rounded,
+                      size: 18,
+                      color: AppColors.textSecondary.withValues(alpha: 0.5)),
                 ),
               ],
             ],
@@ -975,16 +1233,19 @@ class _SchedulingPanel extends StatelessWidget {
             GestureDetector(
               onTap: onPickDate,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.action.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.action.withValues(alpha: 0.2)),
+                  border: Border.all(
+                      color: AppColors.action.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.schedule_rounded, size: 15, color: AppColors.action),
+                    const Icon(Icons.schedule_rounded,
+                        size: 15, color: AppColors.action),
                     const SizedBox(width: 8),
                     Text(
                       fmtDate(dueAt!),
@@ -1006,7 +1267,11 @@ class _SchedulingPanel extends StatelessWidget {
 }
 
 class _QuickDateChip extends StatelessWidget {
-  const _QuickDateChip({required this.label, required this.selected, required this.onTap, this.icon});
+  const _QuickDateChip(
+      {required this.label,
+      required this.selected,
+      required this.onTap,
+      this.icon});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -1014,34 +1279,38 @@ class _QuickDateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.action : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: selected ? AppColors.action : AppColors.divider),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: selected ? AppColors.surface : AppColors.textSecondary),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppColors.surface : AppColors.textSecondary,
-            ),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.action : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: selected ? AppColors.action : AppColors.divider),
           ),
-        ],
-      ),
-    ),
-  );
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon,
+                    size: 13,
+                    color:
+                        selected ? AppColors.surface : AppColors.textSecondary),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppColors.surface : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 // ── Priority panel ────────────────────────────────────────────────────────────
@@ -1053,53 +1322,65 @@ class _PriorityPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
-      boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 12, offset: Offset(0,4))],
-    ),
-    padding: const EdgeInsets.all(12),
-    child: Row(
-      children: TaskPriority.values.map((p) {
-        final meta = _priorityMeta[p]!;
-        final sel  = priority == p;
-        final col  = meta.color == const Color(0x00000000) ? AppColors.textSecondary : meta.color;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(p),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: sel ? col.withValues(alpha: 0.12) : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: sel ? col : Colors.transparent,
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(meta.icon ?? Icons.block_rounded, size: 18, color: sel ? col : AppColors.textSecondary.withValues(alpha: 0.5)),
-                  const SizedBox(height: 4),
-                  Text(
-                    meta.label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                      color: sel ? col : AppColors.textSecondary.withValues(alpha: 0.7),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x08000000), blurRadius: 12, offset: Offset(0, 4))
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: TaskPriority.values.map((p) {
+            final meta = _priorityMeta[p]!;
+            final sel = priority == p;
+            final col = meta.color == const Color(0x00000000)
+                ? AppColors.textSecondary
+                : meta.color;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(p),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color:
+                        sel ? col.withValues(alpha: 0.12) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: sel ? col : Colors.transparent,
+                      width: 1.5,
                     ),
                   ),
-                ],
+                  child: Column(
+                    children: [
+                      Icon(meta.icon ?? Icons.block_rounded,
+                          size: 18,
+                          color: sel
+                              ? col
+                              : AppColors.textSecondary.withValues(alpha: 0.5)),
+                      const SizedBox(height: 4),
+                      Text(
+                        meta.label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                          color: sel
+                              ? col
+                              : AppColors.textSecondary.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
-    ),
-  );
+            );
+          }).toList(),
+        ),
+      );
 }
 
 // ── Project panel ─────────────────────────────────────────────────────────────
@@ -1121,49 +1402,62 @@ class _ProjectPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
-      boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 12, offset: Offset(0,4))],
-    ),
-    padding: const EdgeInsets.all(16),
-    child: Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (int i = 0; i < roadmaps.length; i++)
-          _ProjectChip(
-            label: roadmaps[i],
-            color: colorFor(i),
-            selected: selected == roadmaps[i],
-            onTap: () => onSelect(roadmaps[i]),
-          ),
-        GestureDetector(
-          onTap: onAdd,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.divider, width: 1.5),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.add_rounded, size: 15, color: AppColors.textSecondary),
-                SizedBox(width: 4),
-                Text('New', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x08000000), blurRadius: 12, offset: Offset(0, 4))
+          ],
         ),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (int i = 0; i < roadmaps.length; i++)
+              _ProjectChip(
+                label: roadmaps[i],
+                color: colorFor(i),
+                selected: selected == roadmaps[i],
+                onTap: () => onSelect(roadmaps[i]),
+              ),
+            GestureDetector(
+              onTap: onAdd,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.divider, width: 1.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.add_rounded,
+                        size: 15, color: AppColors.textSecondary),
+                    SizedBox(width: 4),
+                    Text('New',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _ProjectChip extends StatelessWidget {
-  const _ProjectChip({required this.label, required this.color, required this.selected, required this.onTap});
+  const _ProjectChip(
+      {required this.label,
+      required this.color,
+      required this.selected,
+      required this.onTap});
   final String label;
   final Color color;
   final bool selected;
@@ -1171,34 +1465,35 @@ class _ProjectChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected ? color : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: selected ? color : AppColors.divider),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (selected) ...[
-            const Icon(Icons.check_rounded, size: 13, color: AppColors.surface),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppColors.surface : AppColors.textSecondary,
-            ),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? color : AppColors.divider),
           ),
-        ],
-      ),
-    ),
-  );
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(Icons.check_rounded,
+                    size: 13, color: AppColors.surface),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppColors.surface : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 // ── Notes field ───────────────────────────────────────────────────────────────
@@ -1238,14 +1533,16 @@ class _NotesField extends StatelessWidget {
             fontSize: 15,
             height: 1.6,
             fontWeight: FontWeight.w400,
-            color: AppColors.textPrimary.withValues(alpha: expanded ? 1.0 : 0.85),
+            color:
+                AppColors.textPrimary.withValues(alpha: expanded ? 1.0 : 0.85),
           ),
           decoration: InputDecoration(
             filled: false,
             hintText: 'Add notes, links, or extra context…',
             hintStyle: TextStyle(
               fontSize: 15,
-              color: AppColors.textSecondary.withValues(alpha: expanded ? 0.4 : 0.25),
+              color: AppColors.textSecondary
+                  .withValues(alpha: expanded ? 0.4 : 0.25),
               fontWeight: FontWeight.w400,
             ),
             border: InputBorder.none,

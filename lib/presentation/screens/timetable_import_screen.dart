@@ -305,15 +305,7 @@ class _ImportChoices extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 24),
-          const _CsvFormatNote(),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: onTemplate,
-              icon: const Icon(Icons.download_outlined, size: 17),
-              label: const Text('Download CSV template'),
-            ),
-          ),
+          _CsvFormatNote(onTemplate: onTemplate),
         ],
       );
 }
@@ -419,18 +411,72 @@ class _OcrFailure extends StatelessWidget {
 }
 
 class _CsvFormatNote extends StatelessWidget {
-  const _CsvFormatNote();
+  const _CsvFormatNote({required this.onTemplate});
+  final VoidCallback onTemplate;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(14)),
-        child: const Text(
-          'CSV columns: course, instructor, day, start_time, end_time, room. Days can use full or short names; times can use 24-hour or AM/PM format.',
-          style: TextStyle(
-              fontSize: 13, height: 1.45, color: AppColors.textSecondary),
+  Widget build(BuildContext context) => Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTemplate,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.divider),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Download Sample CSV',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'CSV columns: course, instructor, day, start_time, end_time, room. Days can use full or short names; times can use 24-hour or AM/PM format.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.action,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.download_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
 }
