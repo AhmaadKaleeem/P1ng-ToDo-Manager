@@ -13,6 +13,7 @@ abstract class NotificationService {
     required int notificationId,
     required bool isConstant,
     String? label,
+    bool ringAsAlarm = false,
   });
 
   Future<void> cancelNotification(int notificationId);

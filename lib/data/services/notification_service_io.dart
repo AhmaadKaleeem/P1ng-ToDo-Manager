@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -93,6 +94,7 @@ class NotificationServiceImpl implements NotificationService {
     required int notificationId,
     required bool isConstant,
     String? label,
+    bool ringAsAlarm = false,
   }) async {
     final channel = isConstant ? channelConstant : channelNormal;
     final title = isConstant ? 'Constant reminder' : 'Reminder';
@@ -106,7 +108,8 @@ class NotificationServiceImpl implements NotificationService {
         priority: isConstant ? Priority.max : Priority.high,
         ongoing: isConstant,
         autoCancel: !isConstant,
-        fullScreenIntent: true,
+        fullScreenIntent: ringAsAlarm,
+        additionalFlags: ringAsAlarm ? Int32List.fromList(<int>[4]) : null,
         actions: const [
           AndroidNotificationAction('complete', 'Complete'),
           AndroidNotificationAction('snooze', 'Snooze 15m'),
@@ -174,5 +177,6 @@ class NotificationServiceImpl implements NotificationService {
         notificationId: notificationId,
         isConstant: true,
         label: 'Still pending',
+        ringAsAlarm: task.reminderPlan.ringAsAlarm,
       );
 }

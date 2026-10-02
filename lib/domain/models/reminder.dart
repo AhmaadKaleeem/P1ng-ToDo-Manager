@@ -47,6 +47,7 @@ class ReminderPlan {
     this.customOffsets = const [],
     this.dailyReminderMinutes,
     this.flexibleReminder = false,
+    this.ringAsAlarm = false,
   });
 
   final ReminderPreset preset;
@@ -56,6 +57,7 @@ class ReminderPlan {
   /// Minutes since midnight for daily repeating reminder (null = off).
   final int? dailyReminderMinutes;
   final bool flexibleReminder;
+  final bool ringAsAlarm;
 
   List<ReminderOffset> get allOffsets => [...offsets, ...customOffsets];
 
@@ -67,6 +69,7 @@ class ReminderPlan {
     int? dailyReminderMinutes,
     bool clearDailyReminder = false,
     bool? flexibleReminder,
+    bool? ringAsAlarm,
   }) {
     return ReminderPlan(
       preset: preset ?? this.preset,
@@ -75,6 +78,7 @@ class ReminderPlan {
       constantReminder: constantReminder ?? this.constantReminder,
       dailyReminderMinutes: clearDailyReminder ? null : (dailyReminderMinutes ?? this.dailyReminderMinutes),
       flexibleReminder: flexibleReminder ?? this.flexibleReminder,
+      ringAsAlarm: ringAsAlarm ?? this.ringAsAlarm,
     );
   }
 
@@ -85,6 +89,7 @@ class ReminderPlan {
         'constantReminder': constantReminder,
         'dailyReminderMinutes': dailyReminderMinutes,
         'flexibleReminder': flexibleReminder,
+        'ringAsAlarm': ringAsAlarm,
       };
 
   factory ReminderPlan.fromJson(Map<String, Object?> json) => ReminderPlan(
@@ -100,6 +105,7 @@ class ReminderPlan {
         constantReminder: json['constantReminder'] as bool? ?? false,
         dailyReminderMinutes: json['dailyReminderMinutes'] as int?,
         flexibleReminder: json['flexibleReminder'] as bool? ?? false,
+        ringAsAlarm: json['ringAsAlarm'] as bool? ?? false,
       );
 }
 

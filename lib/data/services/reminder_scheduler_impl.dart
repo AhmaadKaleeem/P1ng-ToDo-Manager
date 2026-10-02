@@ -41,6 +41,7 @@ class ReminderSchedulerImpl implements ReminderScheduler {
         notificationId: notifId,
         isConstant: false,
         label: reminder.label,
+        ringAsAlarm: task.reminderPlan.ringAsAlarm,
       );
       persisted.add(reminder.copyWith(notificationId: notifId));
     }
@@ -58,6 +59,7 @@ class ReminderSchedulerImpl implements ReminderScheduler {
         notificationId: constantId,
         isConstant: true,
         label: 'Constant reminder active',
+        ringAsAlarm: task.reminderPlan.ringAsAlarm,
       );
       persisted.add(
         ScheduledReminder(
@@ -105,6 +107,7 @@ class ReminderSchedulerImpl implements ReminderScheduler {
       notificationId: notifId,
       isConstant: reminder.kind == ReminderKind.constant,
       label: 'Snoozed',
+      ringAsAlarm: task.reminderPlan.ringAsAlarm,
     );
     await _tasks.updateReminder(
       reminder.copyWith(
@@ -161,6 +164,7 @@ class ReminderSchedulerImpl implements ReminderScheduler {
           notificationId: reminder.notificationId!,
           isConstant: reminder.kind == ReminderKind.constant,
           label: reminder.label,
+          ringAsAlarm: task.reminderPlan.ringAsAlarm,
         );
       } else {
         // Future reminder, reschedule safely
@@ -170,6 +174,7 @@ class ReminderSchedulerImpl implements ReminderScheduler {
           notificationId: reminder.notificationId!,
           isConstant: reminder.kind == ReminderKind.constant,
           label: reminder.label,
+          ringAsAlarm: task.reminderPlan.ringAsAlarm,
         );
       }
     }

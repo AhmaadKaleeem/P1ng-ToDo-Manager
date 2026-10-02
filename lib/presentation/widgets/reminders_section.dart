@@ -418,6 +418,38 @@ class RemindersSection extends StatelessWidget {
                   ],
                 ),
               ),
+
+              _Divider(),
+
+              // ── Ring as Alarm toggle ───────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Ring as Alarm', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Reminders will ring continuously at full volume until you dismiss them',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.8)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Switch(
+                      value: plan.ringAsAlarm,
+                      activeColor: AppColors.alert,
+                      inactiveTrackColor: AppColors.divider.withValues(alpha: 0.8),
+                      inactiveThumbColor: AppColors.textSecondary,
+                      onChanged: (val) => onChanged(plan.copyWith(ringAsAlarm: val)),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
