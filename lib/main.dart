@@ -5,9 +5,15 @@ import 'package:todow/core/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const ProviderScope(child: TodowApp()));
 }
 
@@ -55,6 +61,9 @@ class _TodowAppState extends State<TodowApp> {
             theme: AppTheme.dark,
             initialRoute: AppRoutes.splash,
             onGenerateRoute: (settings) => AppRouter.generateRoute(settings, services),
+            navigatorObservers: [
+              FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+            ],
           ),
         );
       },
