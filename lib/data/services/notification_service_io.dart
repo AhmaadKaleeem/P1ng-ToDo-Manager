@@ -6,6 +6,7 @@ import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/services/notification_service.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 typedef NotificationTapHandler = void Function(String? payload, String? action);
 
@@ -22,6 +23,12 @@ class NotificationServiceImpl implements NotificationService {
   @override
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
+    try {
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (e) {
+      debugPrint('Could not initialize timezone: $e');
+    }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     await _plugin.initialize(
@@ -99,6 +106,7 @@ class NotificationServiceImpl implements NotificationService {
         priority: isConstant ? Priority.max : Priority.high,
         ongoing: isConstant,
         autoCancel: !isConstant,
+        fullScreenIntent: true,
         actions: const [
           AndroidNotificationAction('complete', 'Complete'),
           AndroidNotificationAction('snooze', 'Snooze 15m'),
