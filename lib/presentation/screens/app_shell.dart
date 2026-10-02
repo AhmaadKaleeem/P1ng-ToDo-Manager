@@ -248,7 +248,7 @@ class AppShellState extends State<AppShell>
                                 const SizedBox(
                                   width: 104,
                                   child: Text(
-                                    'Version 1.0.1',
+                                    'v1.0.2',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: AppColors.textSecondary,

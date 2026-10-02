@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
@@ -40,17 +41,68 @@ class TimetableScreen extends StatefulWidget {
   State<TimetableScreen> createState() => _TimetableScreenState();
 }
 
-class _TimetableScreenState extends State<TimetableScreen> {
+class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingObserver {
   late Weekday _selectedDay;
   late DateTime _selectedDate;
   TimetableKind _selectedKind = TimetableKind.university;
   _TimetableView _view = _TimetableView.day;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = WeekdayExt.fromDartWeekday(DateTime.now().weekday);
     _selectedDate = DateTime.now();
+    WidgetsBinding.instance.addObserver(this);
+    Future.microtask(_scheduleNextUpdate);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleNextUpdate();
+  }
+
+  void _scheduleNextUpdate() {
+    _timer?.cancel();
+    if (!mounted) return;
+    setState(() {});
+
+    final now = DateTime.now();
+    final entries = context.read<TimetableController>().forDay(_selectedDay, scheduleKind: _selectedKind);
+    
+    if (_view == _TimetableView.day && entries.isNotEmpty && _selectedDate.year == now.year && _selectedDate.day == now.day) {
+      final lastEntry = entries.last;
+      final end = DateTime(now.year, now.month, now.day, lastEntry.endTime.hour, lastEntry.endTime.minute);
+      if (now.isAfter(end)) {
+        _shiftDay(1);
+        return; 
+      }
+    }
+
+    DateTime? nextWake;
+    for (final e in entries) {
+      final start = DateTime(now.year, now.month, now.day, e.startTime.hour, e.startTime.minute);
+      if (now.isBefore(start) && (nextWake == null || start.isBefore(nextWake))) nextWake = start;
+    }
+    
+    int delayMs = 3600000;
+    final primary = _primaryIndex(entries, _selectedDay);
+    if (primary != null && _isCurrent(entries[primary])) {
+      delayMs = 60000 - (now.second * 1000 + now.millisecond);
+    } else if (nextWake != null) {
+      delayMs = nextWake.difference(now).inMilliseconds;
+    }
+    
+    if (delayMs > 0) {
+      _timer = Timer(Duration(milliseconds: delayMs), _scheduleNextUpdate);
+    }
   }
 
   Future<void> _delete(
@@ -145,6 +197,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: amount));
       _selectedDay = WeekdayExt.fromDartWeekday(_selectedDate.weekday);
+      _scheduleNextUpdate();
     });
   }
 
@@ -444,6 +497,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     entry: item.$2,
                     emphasis:
                         item.$1 == primaryIndex ? _currentState(item.$2) : null,
+                    isPast: _isPast(item.$2),
                     onEdit: () => _edit(item.$2),
                     onDelete: () => _delete(controller, item.$2),
                     onCreateTask: () => _createTaskFromEntry(item.$2),
@@ -476,6 +530,22 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final end = DateTime(
         now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     return !now.isBefore(start) && now.isBefore(end) ? 'NOW' : 'NEXT';
+  }
+
+  bool _isCurrent(TimetableEntry entry) {
+    final now = DateTime.now();
+    if (_selectedDate.year != now.year || _selectedDate.month != now.month || _selectedDate.day != now.day) return false;
+    final start = DateTime(now.year, now.month, now.day, entry.startTime.hour, entry.startTime.minute);
+    final end = DateTime(now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
+    return !now.isBefore(start) && now.isBefore(end);
+  }
+
+  bool _isPast(TimetableEntry entry) {
+    final now = DateTime.now();
+    if (_selectedDate.year < now.year || (_selectedDate.year == now.year && _selectedDate.month < now.month) || (_selectedDate.year == now.year && _selectedDate.month == now.month && _selectedDate.day < now.day)) return true;
+    if (_selectedDate.year > now.year || (_selectedDate.year == now.year && _selectedDate.month > now.month) || (_selectedDate.year == now.year && _selectedDate.month == now.month && _selectedDate.day > now.day)) return false;
+    final end = DateTime(now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
+    return now.isAfter(end);
   }
 
   List<TimetableEntry> _entriesForWeekday(
@@ -776,13 +846,15 @@ class _ClassCard extends StatelessWidget {
       required this.emphasis,
       required this.onEdit,
       required this.onDelete,
-      required this.onCreateTask});
+      required this.onCreateTask,
+      this.isPast = false});
 
   final TimetableEntry entry;
   final String? emphasis;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onCreateTask;
+  final bool isPast;
 
   @override
   Widget build(BuildContext context) {
@@ -804,7 +876,8 @@ class _ClassCard extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: accentColor)),
+                        decoration: isPast ? TextDecoration.lineThrough : null,
+                        color: isPast ? AppColors.textSecondaryOpacity(0.5) : accentColor)),
                 Expanded(
                   child: Container(
                     width: 3,
@@ -858,11 +931,12 @@ class _ClassCard extends StatelessWidget {
                                     child: Text(entry.courseName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
                                             letterSpacing: -0.2,
-                                            color: AppColors.textPrimary)),
+                                            decoration: isPast ? TextDecoration.lineThrough : null,
+                                            color: isPast ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary)),
                                   ),
                                   if (emphasis == 'NOW')
                                     Container(

@@ -34,14 +34,13 @@ class _SplashScreenState extends State<SplashScreen> {
     if (mounted) {
       setState(() {
         _hasName = hasName;
-        // If they don't have a name, we can show the input field early so they don't wait 10s just to type
         if (!hasName) {
           _needsName = true;
         }
       });
     }
 
-    await Future.delayed(const Duration(seconds: 10));
+    await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
 
     if (_hasName) {

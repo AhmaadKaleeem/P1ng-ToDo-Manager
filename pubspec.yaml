@@ -1,7 +1,7 @@
 name: todow
-description: Personal student productivity — tasks, reminders, focus, timetable.
+description: Personal Student Productivity - Tasks, Reminders, Focus, and Timetables.
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.2+2
 
 environment:
   sdk: ^3.6.0

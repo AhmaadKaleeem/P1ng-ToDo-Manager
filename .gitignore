@@ -47,3 +47,4 @@ app.*.map.json
 .hedgehog/hedgehog.db
 .hedgehog/hedgehog.db-*
 .hedgehog/commit.lock
+gh_cli/*

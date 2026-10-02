@@ -1,15 +1,18 @@
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
+import 'package:todow/domain/models/timetable_entry.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/reminders/reminder_calculator.dart';
 import 'package:todow/domain/repositories/task_repository.dart';
+import 'package:todow/domain/repositories/timetable_repository.dart';
 import 'package:todow/domain/services/notification_service.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
 
 class ReminderSchedulerImpl implements ReminderScheduler {
-  ReminderSchedulerImpl(this._tasks, this._notifications);
+  ReminderSchedulerImpl(this._tasks, this._timetable, this._notifications);
 
   final TaskRepository _tasks;
+  final TimetableRepository _timetable;
   final NotificationService _notifications;
 
   int _notificationIdFor(String reminderId) =>
@@ -23,7 +26,11 @@ class ReminderSchedulerImpl implements ReminderScheduler {
       return;
     }
 
-    final schedule = ReminderCalculator.buildSchedule(task);
+    final timetable = task.reminderPlan.flexibleReminder 
+        ? await _timetable.getAll() 
+        : const <TimetableEntry>[];
+
+    final schedule = ReminderCalculator.buildSchedule(task, timetable: timetable);
     final persisted = <ScheduledReminder>[];
 
     for (final reminder in schedule) {

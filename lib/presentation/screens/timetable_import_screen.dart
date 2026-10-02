@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/package:path_provider.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
@@ -29,7 +29,7 @@ class TimetableImportScreen extends StatefulWidget {
 class _TimetableImportScreenState extends State<TimetableImportScreen> {
   static const _parser = TimetableImportParser();
   static const _csvPrompt =
-      'Convert this timetable into CSV with exactly these columns: course,instructor,day,start_time,end_time,room. Create one row per class. Use weekday names like Monday, 24-hour times like 08:30, leave unknown instructor or room blank, and return CSV only without Markdown.';
+      'Extract this timetable to a CSV with headers: course, instructor, day, start_time, end_time, room. One row per class. Use full days (e.g., Monday) and 24h times (e.g., 08:30). Leave missing info blank. Output RAW CSV ONLY.';
   final _imagePicker = ImagePicker();
   TimetableImportDraft? _draft;
   String? _sourceName;

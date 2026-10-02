@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:archive/archive.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -32,7 +33,7 @@ class TimetableImportParser {
   TimetableImportDraft parseOcr(RecognizedText recognizedText) {
     final rows = <TimetableDraftEntry>[];
     final dayPattern = RegExp(
-      r'\b(mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b',
+      r'^\s*(mo(?:n(?:day)?)?|tu(?:e(?:sday)?)?|we(?:d(?:nesday)?)?|th(?:u(?:rsday)?)?|fr(?:i(?:day)?)?|sa(?:t(?:urday)?)?|su(?:n(?:day)?)?)\b',
       caseSensitive: false,
     );
     final timeRangePattern = RegExp(
@@ -44,83 +45,235 @@ class TimetableImportParser {
     for (final block in recognizedText.blocks) {
       lines.addAll(block.lines);
     }
-    
-    // Group lines horizontally if they are roughly on the same vertical level.
-    final rowStrings = <String>[];
-    if (lines.isNotEmpty) {
-      // Sort primarily by Y coordinate
-      lines.sort((a, b) => a.boundingBox.center.dy.compareTo(b.boundingBox.center.dy));
 
-      var currentRow = [lines.first];
-      for (var i = 1; i < lines.length; i++) {
-        final line = lines[i];
-        final avgY = currentRow.map((e) => e.boundingBox.center.dy).reduce((a, b) => a + b) / currentRow.length;
-        if ((line.boundingBox.center.dy - avgY).abs() < 25) { // Vertical tolerance
-          currentRow.add(line);
-        } else {
-          currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
-          rowStrings.add(currentRow.map((e) => e.text).join(' '));
-          currentRow = [line];
+    final times = <Rect, (DateTime, DateTime)>{};
+    final days = <Rect, Weekday>{};
+    final otherLines = <TextLine>[];
+
+    for (final line in lines) {
+      final text = line.text.trim();
+      final timeMatch = timeRangePattern.firstMatch(text);
+      if (timeMatch != null) {
+        final start = _parseTime(timeMatch.group(1)!);
+        var end = _parseTime(timeMatch.group(2)!);
+        if (start != null && end != null) {
+          if (!end.isAfter(start)) end = end.add(const Duration(hours: 12));
+          times[line.boundingBox] = (start, end);
+          continue;
         }
       }
-      if (currentRow.isNotEmpty) {
-        currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
-        rowStrings.add(currentRow.map((e) => e.text).join(' '));
+
+      final dayMatch = dayPattern.firstMatch(text);
+      if (dayMatch != null && text.length < 15) {
+        final day = _parseDay(dayMatch.group(1)!);
+        if (day != null) {
+          days[line.boundingBox] = day;
+          continue;
+        }
+      }
+
+      otherLines.add(line);
+    }
+
+    if (days.isNotEmpty && times.isNotEmpty) {
+      bool daysAreRows = true;
+      if (days.length > 1) {
+        final xs = days.keys.map((r) => r.center.dx).toList();
+        final ys = days.keys.map((r) => r.center.dy).toList();
+        final xSpread = xs.reduce((a, b) => a > b ? a : b) - xs.reduce((a, b) => a < b ? a : b);
+        final ySpread = ys.reduce((a, b) => a > b ? a : b) - ys.reduce((a, b) => a < b ? a : b);
+        daysAreRows = ySpread > xSpread;
+      }
+
+      final rowHeaders = daysAreRows ? days : times;
+      final colHeaders = daysAreRows ? times : days;
+
+      final gridRows = rowHeaders.entries.toList()
+        ..sort((a, b) => a.key.center.dy.compareTo(b.key.center.dy));
+      final gridCols = colHeaders.entries.toList()
+        ..sort((a, b) => a.key.center.dx.compareTo(b.key.center.dx));
+
+      for (var rowIndex = 0; rowIndex < gridRows.length; rowIndex++) {
+        final row = gridRows[rowIndex];
+        final nextRowY = rowIndex < gridRows.length - 1
+            ? gridRows[rowIndex + 1].key.center.dy
+            : double.infinity;
+        final prevRowY = rowIndex > 0 ? gridRows[rowIndex - 1].key.center.dy : 0.0;
+        final topBoundary = (row.key.center.dy + prevRowY) / 2;
+        final bottomBoundary = (row.key.center.dy + nextRowY) / 2;
+
+        final rowLines = otherLines.where((l) {
+          final y = l.boundingBox.center.dy;
+          return y >= topBoundary && y < bottomBoundary;
+        }).toList();
+
+        rowLines.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+
+        final cells = <List<TextLine>>[];
+        for (final line in rowLines) {
+          bool added = false;
+          for (final cell in cells) {
+            final cellRight =
+                cell.map((l) => l.boundingBox.right).reduce((a, b) => a > b ? a : b);
+            if (line.boundingBox.left < cellRight + 60) {
+              cell.add(line);
+              added = true;
+              break;
+            }
+          }
+          if (!added) {
+            cells.add([line]);
+          }
+        }
+
+        for (final cell in cells) {
+          final cellLeft =
+              cell.map((l) => l.boundingBox.left).reduce((a, b) => a < b ? a : b);
+          final cellRight =
+              cell.map((l) => l.boundingBox.right).reduce((a, b) => a > b ? a : b);
+
+          dynamic colValue;
+
+          for (var i = 0; i < gridCols.length; i++) {
+            final col = gridCols[i];
+            final prevColX = i > 0 ? gridCols[i - 1].key.center.dx : 0.0;
+            final nextColX = i < gridCols.length - 1
+                ? gridCols[i + 1].key.center.dx
+                : double.infinity;
+            final leftBoundary = (col.key.center.dx + prevColX) / 2;
+            final rightBoundary = (col.key.center.dx + nextColX) / 2;
+
+            if (cellRight > leftBoundary && cellLeft < rightBoundary) {
+              if (colValue == null) {
+                colValue = col.value;
+              } else if (daysAreRows) {
+                final current = colValue as (DateTime, DateTime);
+                final added = col.value as (DateTime, DateTime);
+                DateTime start = current.$1;
+                DateTime end = current.$2;
+                if (added.$1.isBefore(start)) start = added.$1;
+                if (added.$2.isAfter(end)) end = added.$2;
+                colValue = (start, end);
+              }
+            }
+          }
+
+          final text = cell.map((l) => l.text).join(' ').trim();
+          if (text.isEmpty || colValue == null) continue;
+
+          final day = daysAreRows ? row.value as Weekday : colValue as Weekday;
+          final time = daysAreRows ? colValue as (DateTime, DateTime) : row.value as (DateTime, DateTime);
+
+          var details = text;
+          String instructor = '';
+          final instructorMatch = RegExp(
+            r'\b(?:instructor|teacher|professor|Dr|Prof|Mr|Ms|Mrs)\.?\s*[:\-]?\s*[a-zA-Z]+(?:\s+[a-zA-Z]+)*',
+            caseSensitive: false,
+          ).firstMatch(details);
+          if (instructorMatch != null) {
+            instructor = instructorMatch.group(0)!.trim();
+            details = details.replaceRange(
+                instructorMatch.start, instructorMatch.end, ' ');
+          }
+
+          String room = '';
+          final roomMatch = RegExp(
+            r'\b(?:room|lab|venue|c)\s*[#:.\-]?\s*\d+[a-zA-Z0-9 \-]*\b',
+            caseSensitive: false,
+          ).firstMatch(details);
+          if (roomMatch != null) {
+            room = roomMatch.group(0)!.trim();
+            details = details.replaceRange(roomMatch.start, roomMatch.end, ' ');
+          }
+          final course = details
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll(RegExp(r'^[\s:|,.-]+|[\s:|,.-]+$'), '')
+              .trim();
+
+          if (course.isNotEmpty) {
+            rows.add(TimetableDraftEntry(
+              courseName: course,
+              instructor: instructor,
+              room: room,
+              weekday: day,
+              startTime: time.$1,
+              endTime: time.$2,
+            ));
+          }
+        }
+      }
+    } else {
+      // Linear fallback
+      final rowStrings = <String>[];
+      if (lines.isNotEmpty) {
+        lines.sort((a, b) => a.boundingBox.center.dy.compareTo(b.boundingBox.center.dy));
+        var currentRow = [lines.first];
+        for (var i = 1; i < lines.length; i++) {
+          final line = lines[i];
+          final avgY = currentRow.map((e) => e.boundingBox.center.dy).reduce((a, b) => a + b) / currentRow.length;
+          if ((line.boundingBox.center.dy - avgY).abs() < 25) {
+            currentRow.add(line);
+          } else {
+            currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+            rowStrings.add(currentRow.map((e) => e.text).join(' '));
+            currentRow = [line];
+          }
+        }
+        if (currentRow.isNotEmpty) {
+          currentRow.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+          rowStrings.add(currentRow.map((e) => e.text).join(' '));
+        }
+      }
+
+      for (final rawLine in rowStrings) {
+        final line = rawLine.trim();
+        final dayMatch = dayPattern.firstMatch(line);
+        final timeMatch = timeRangePattern.firstMatch(line);
+        if (dayMatch == null && timeMatch == null) continue;
+        final day = dayMatch == null ? null : _parseDay(dayMatch.group(1)!);
+        final start = timeMatch == null ? null : _parseTime(timeMatch.group(1)!);
+        var end = timeMatch == null ? null : _parseTime(timeMatch.group(2)!);
+        if (start != null && end != null && !end.isAfter(start)) {
+          end = end.add(const Duration(hours: 12));
+        }
+
+        var details =
+            line.replaceAll(dayPattern, ' ').replaceAll(timeRangePattern, ' ');
+        String instructor = '';
+        final instructorMatch = RegExp(
+          r'\b(?:instructor|teacher|professor|Dr|Prof|Mr|Ms|Mrs)\.?\s*[:\-]?\s*[a-zA-Z]+(?:\s+[a-zA-Z]+)*',
+          caseSensitive: false,
+        ).firstMatch(details);
+        if (instructorMatch != null) {
+          instructor = instructorMatch.group(0)!.trim();
+          details = details.replaceRange(
+              instructorMatch.start, instructorMatch.end, ' ');
+        }
+
+        String room = '';
+        final roomMatch = RegExp(
+          r'\b(?:room|lab|venue|c)\s*[#:.\-]?\s*\d+[a-zA-Z0-9 \-]*\b',
+          caseSensitive: false,
+        ).firstMatch(details);
+        if (roomMatch != null) {
+          room = roomMatch.group(0)!.trim();
+          details = details.replaceRange(roomMatch.start, roomMatch.end, ' ');
+        }
+        final course = details
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAll(RegExp(r'^[\s:|,.-]+|[\s:|,.-]+$'), '')
+            .trim();
+        rows.add(TimetableDraftEntry(
+          courseName: course,
+          instructor: instructor,
+          room: room,
+          weekday: day,
+          startTime: start,
+          endTime: end,
+        ));
       }
     }
 
-    for (final rawLine in rowStrings) {
-      final line = rawLine.trim();
-      final dayMatch = dayPattern.firstMatch(line);
-      final timeMatch = timeRangePattern.firstMatch(line);
-      if (dayMatch == null && timeMatch == null) continue;
-      final day = dayMatch == null ? null : _parseDay(dayMatch.group(1)!);
-      final start = timeMatch == null ? null : _parseTime(timeMatch.group(1)!);
-      var end = timeMatch == null ? null : _parseTime(timeMatch.group(2)!);
-      if (start != null && end != null && !end.isAfter(start)) {
-        end = end.add(const Duration(hours: 12));
-      }
-
-      var details =
-          line.replaceAll(dayPattern, ' ').replaceAll(timeRangePattern, ' ');
-      String instructor = '';
-      final labeledInstructor = RegExp(
-        r'\b(?:instructor|teacher|professor)\s*[:\-]?\s*([^,;|]+)',
-        caseSensitive: false,
-      ).firstMatch(details);
-      final titledInstructor =
-          RegExp(r'\b(?:Dr|Prof)\.?\s+[A-Z][\w-]+(?:\s+[A-Z][\w-]+)?')
-              .firstMatch(details);
-      final instructorMatch = labeledInstructor ?? titledInstructor;
-      if (instructorMatch != null) {
-        instructor =
-            instructorMatch.group(labeledInstructor != null ? 1 : 0)!.trim();
-        details = details.replaceRange(
-            instructorMatch.start, instructorMatch.end, ' ');
-      }
-
-      String room = '';
-      final roomMatch = RegExp(
-        r'\b(?:room|lab|venue)\s*[#:.-]?\s*[A-Z0-9][A-Z0-9 -]*',
-        caseSensitive: false,
-      ).firstMatch(details);
-      if (roomMatch != null) {
-        room = roomMatch.group(0)!.trim();
-        details = details.replaceRange(roomMatch.start, roomMatch.end, ' ');
-      }
-      final course = details
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .replaceAll(RegExp(r'^[\s:|,.-]+|[\s:|,.-]+$'), '')
-          .trim();
-      rows.add(TimetableDraftEntry(
-        courseName: course,
-        instructor: instructor,
-        room: room,
-        weekday: day,
-        startTime: start,
-        endTime: end,
-      ));
-    }
     return TimetableImportDraft(
       rows: rows,
       errors: rows.isEmpty
