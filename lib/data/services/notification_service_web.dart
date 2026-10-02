@@ -26,6 +26,7 @@ class NotificationServiceImpl implements NotificationService {
     required int notificationId,
     required bool isConstant,
     String? label,
+    bool ringAsAlarm = false,
   }) async =>
       notificationId;
 
