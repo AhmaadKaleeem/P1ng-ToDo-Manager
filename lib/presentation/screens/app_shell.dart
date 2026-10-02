@@ -26,6 +26,9 @@ class AppShellState extends State<AppShell>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.services.appController.requestNotificationPermissions();
+    });
   }
 
   @override

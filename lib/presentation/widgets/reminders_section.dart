@@ -401,7 +401,7 @@ class RemindersSection extends StatelessWidget {
                           const Text('Flexible Reminder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                           const SizedBox(height: 2),
                           Text(
-                            'Defers reminders if you are in a scheduled class',
+                            'Delays notifications until your current class finishes so you aren\'t disturbed',
                             style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.8)),
                           ),
                         ],

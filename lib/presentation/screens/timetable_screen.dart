@@ -497,7 +497,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
                     entry: item.$2,
                     emphasis:
                         item.$1 == primaryIndex ? _currentState(item.$2) : null,
-                    isPast: _isPast(item.$2),
+                    isPast: _isPast(item.$2, _selectedDate),
                     onEdit: () => _edit(item.$2),
                     onDelete: () => _delete(controller, item.$2),
                     onCreateTask: () => _createTaskFromEntry(item.$2),
@@ -507,6 +507,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
               _WeekdaySection(
                 day: day,
                 entries: _entriesForWeekday(controller, day),
+                isPastList: _entriesForWeekday(controller, day).map((e) => _isPast(e, DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).subtract(Duration(days: _selectedDate.weekday - 1)).add(Duration(days: day.index)))).toList(),
                 primaryIndex:
                     _primaryIndex(_entriesForWeekday(controller, day), day),
                 onOpenDay: () => setState(() {
@@ -540,10 +541,10 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
     return !now.isBefore(start) && now.isBefore(end);
   }
 
-  bool _isPast(TimetableEntry entry) {
+  bool _isPast(TimetableEntry entry, DateTime dateOfEntry) {
     final now = DateTime.now();
-    if (_selectedDate.year < now.year || (_selectedDate.year == now.year && _selectedDate.month < now.month) || (_selectedDate.year == now.year && _selectedDate.month == now.month && _selectedDate.day < now.day)) return true;
-    if (_selectedDate.year > now.year || (_selectedDate.year == now.year && _selectedDate.month > now.month) || (_selectedDate.year == now.year && _selectedDate.month == now.month && _selectedDate.day > now.day)) return false;
+    if (dateOfEntry.year < now.year || (dateOfEntry.year == now.year && dateOfEntry.month < now.month) || (dateOfEntry.year == now.year && dateOfEntry.month == now.month && dateOfEntry.day < now.day)) return true;
+    if (dateOfEntry.year > now.year || (dateOfEntry.year == now.year && dateOfEntry.month > now.month) || (dateOfEntry.year == now.year && dateOfEntry.month == now.month && dateOfEntry.day > now.day)) return false;
     final end = DateTime(now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     return now.isAfter(end);
   }
@@ -648,12 +649,14 @@ class _WeekdaySection extends StatelessWidget {
     required this.entries,
     required this.primaryIndex,
     required this.onOpenDay,
+    required this.isPastList,
   });
 
   final Weekday day;
   final List<TimetableEntry> entries;
   final int? primaryIndex;
   final VoidCallback onOpenDay;
+  final List<bool> isPastList;
 
   @override
   Widget build(BuildContext context) {
@@ -736,7 +739,8 @@ class _WeekdaySection extends StatelessWidget {
                                       fontWeight: i == primaryIndex
                                           ? FontWeight.w700
                                           : FontWeight.w500,
-                                      color: AppColors.textPrimary)),
+                                      decoration: isPastList[i] ? TextDecoration.lineThrough : null,
+                                      color: isPastList[i] ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary)),
                             ),
                             Container(
                               width: 4,
@@ -767,7 +771,8 @@ class _WeekdaySection extends StatelessWidget {
                                           fontWeight: i == primaryIndex
                                               ? FontWeight.w700
                                               : FontWeight.w600,
-                                          color: AppColors.textPrimary)),
+                                          decoration: isPastList[i] ? TextDecoration.lineThrough : null,
+                                          color: isPastList[i] ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary)),
                                   Text(
                                       timetableTypeLabel(entries[i].category,
                                           entries[i].scheduleKind),
