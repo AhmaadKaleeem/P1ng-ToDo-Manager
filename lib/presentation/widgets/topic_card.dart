@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 
 // Even index → card aligned left side; odd → right side.
 // This drives the zigzag composition.
@@ -730,7 +730,7 @@ class _TopicMenu extends StatelessWidget {
       );
 }
 
-class _TopicTaskRow extends StatelessWidget {
+class _TopicTaskRow extends ConsumerWidget {
   const _TopicTaskRow({
     required this.task,
     required this.onChanged,
@@ -742,7 +742,7 @@ class _TopicTaskRow extends StatelessWidget {
   final bool onDark;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
+  Widget build(BuildContext context, WidgetRef ref) => ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 52),
         child: Row(
           children: [
@@ -751,7 +751,7 @@ class _TopicTaskRow extends StatelessWidget {
                   ? 'Reopen ${task.title}'
                   : 'Complete ${task.title}',
               onPressed: () async {
-                final ctrl = context.read<TaskController>();
+                final ctrl = ref.read(tasksProvider.notifier);
                 if (task.isCompleted) {
                   await ctrl.reopenTask(task.id);
                 } else {
@@ -814,7 +814,7 @@ class _TopicTaskRow extends StatelessWidget {
                       ? Colors.white.withValues(alpha: 0.65)
                       : AppColors.textSecondary),
               onSelected: (_) async {
-                await context.read<TaskController>().deleteTask(task.id);
+                await ref.read(tasksProvider.notifier).deleteTask(task.id);
                 if (!context.mounted) return;
                 onChanged();
               },

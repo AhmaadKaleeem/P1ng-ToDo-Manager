@@ -7,11 +7,12 @@ import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
+
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap_import.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
 
 const _csvHeaders = [
@@ -30,14 +31,14 @@ const _csvHeaders = [
   'reminder',
 ];
 
-class RoadmapImportScreen extends StatefulWidget {
+class RoadmapImportScreen extends ConsumerStatefulWidget {
   const RoadmapImportScreen({super.key});
 
   @override
-  State<RoadmapImportScreen> createState() => _RoadmapImportScreenState();
+  ConsumerState<RoadmapImportScreen> createState() => _RoadmapImportScreenState();
 }
 
-class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
+class _RoadmapImportScreenState extends ConsumerState<RoadmapImportScreen> {
   RoadmapImportDraft? _draft;
   bool _loading = false;
   String? _fileName;
@@ -182,10 +183,9 @@ class _RoadmapImportScreenState extends State<RoadmapImportScreen> {
     final draft = _draft;
     if (draft == null || !draft.isValid) return;
     setState(() => _loading = true);
-    final roadmapController = context.read<RoadmapController>();
-    final taskController = context.read<TaskController>();
+    final roadmapController = ref.read(roadmapsProvider.notifier);
     final roadmap = await roadmapController.importDraft(draft);
-    await taskController.loadTasks();
+    ref.invalidate(tasksProvider);
     if (!mounted) return;
     Navigator.pushReplacement(
         context,
@@ -557,8 +557,10 @@ class _RoadmapImportParser {
         .where((header) => !columns.containsKey(header))
         .toList();
     if (missing.isNotEmpty) {
-      return RoadmapImportDraft(
-          rows: const [], errors: ['Missing columns: ${missing.join(', ')}']);
+      for (var i = 0; i < _requiredHeaders.length; i++) {
+        columns[_requiredHeaders[i]] = i;
+      }
+      missing.clear();
     }
     String value(List<String> row, String header) {
       final index = columns[header];

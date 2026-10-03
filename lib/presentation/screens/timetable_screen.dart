@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/domain/models/enums.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/providers/timetable_providers.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 import 'package:todow/presentation/screens/app_shell.dart';
 import 'package:todow/presentation/screens/timetable_import_screen.dart';
 import 'package:todow/presentation/widgets/timetable_editor.dart';
@@ -34,14 +34,14 @@ Color getEntryColor(TimetableEntry entry) {
 
 enum _TimetableView { week, day }
 
-class TimetableScreen extends StatefulWidget {
+class TimetableScreen extends ConsumerStatefulWidget {
   const TimetableScreen({super.key});
 
   @override
-  State<TimetableScreen> createState() => _TimetableScreenState();
+  ConsumerState<TimetableScreen> createState() => _TimetableScreenState();
 }
 
-class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingObserver {
+class _TimetableScreenState extends ConsumerState<TimetableScreen> with WidgetsBindingObserver {
   late Weekday _selectedDay;
   late DateTime _selectedDate;
   TimetableKind _selectedKind = TimetableKind.university;
@@ -75,7 +75,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
     setState(() {});
 
     final now = DateTime.now();
-    final entries = context.read<TimetableController>().forDay(_selectedDay, scheduleKind: _selectedKind);
+    final entries = ref.read(timetableForDayProvider((day: _selectedDay, kind: _selectedKind)));
     
     if (_view == _TimetableView.day && entries.isNotEmpty && _selectedDate.year == now.year && _selectedDate.day == now.day) {
       final lastEntry = entries.last;
@@ -106,7 +106,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
   }
 
   Future<void> _delete(
-      TimetableController controller, TimetableEntry entry) async {
+      TimetableNotifier controller, TimetableEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -149,14 +149,14 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
     final date = entry.scheduledDate ?? DateTime.now();
     final dueAt = DateTime(date.year, date.month, date.day, entry.endTime.hour,
         entry.endTime.minute);
-    final task = await context.read<TaskController>().createTask(
+    final task = await ref.read(tasksProvider.notifier).createTask(
           title: entry.courseName,
           description: entry.instructor,
           dueAt: dueAt,
           category: entry.category ?? 'Personal timetable',
         );
     if (!mounted) return;
-    await context.read<TimetableController>().update(TimetableEntry(
+    await ref.read(timetableProvider.notifier).updateEntry(TimetableEntry(
           id: entry.id,
           courseName: entry.courseName,
           instructor: entry.instructor,
@@ -201,8 +201,9 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
     });
   }
 
-  Future<void> _copyUniversityEntries(TimetableController controller) async {
-    final source = controller.entriesFor(TimetableKind.university);
+  Future<void> _copyUniversityEntries() async {
+    final controller = ref.read(timetableProvider.notifier);
+    final source = ref.read(timetableEntriesForKindProvider(TimetableKind.university));
     if (source.isEmpty) {
       _showCopyFeedback(
         'Add university classes before copying them.',
@@ -211,7 +212,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
       );
       return;
     }
-    final personal = controller.entriesFor(TimetableKind.personal);
+    final personal = ref.read(timetableEntriesForKindProvider(TimetableKind.personal));
     var copied = 0;
     for (final entry in source) {
       if (personal.any((item) =>
@@ -268,13 +269,9 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<TimetableController>();
     final today = WeekdayExt.fromDartWeekday(DateTime.now().weekday);
-    final entries = controller
-        .forDay(
-          _selectedDay,
-          scheduleKind: _selectedKind,
-        )
+    final rawEntries = ref.watch(timetableForDayProvider((day: _selectedDay, kind: _selectedKind)));
+    final entries = rawEntries
         .where((entry) =>
             entry.repeatWeekly ||
             (entry.scheduledDate!.year == _selectedDate.year &&
@@ -372,7 +369,7 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton.icon(
-                    onPressed: () => _copyUniversityEntries(controller),
+                    onPressed: () => _copyUniversityEntries(),
                     icon: const Icon(Icons.content_copy_rounded, size: 16),
                     label: const Text('Copy university classes here'),
                     style: FilledButton.styleFrom(
@@ -499,17 +496,17 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
                         item.$1 == primaryIndex ? _currentState(item.$2) : null,
                     isPast: _isPast(item.$2, _selectedDate),
                     onEdit: () => _edit(item.$2),
-                    onDelete: () => _delete(controller, item.$2),
+                    onDelete: () => _delete(ref.read(timetableProvider.notifier), item.$2),
                     onCreateTask: () => _createTaskFromEntry(item.$2),
                   )),
           ] else ...[
             for (final day in Weekday.values)
               _WeekdaySection(
                 day: day,
-                entries: _entriesForWeekday(controller, day),
-                isPastList: _entriesForWeekday(controller, day).map((e) => _isPast(e, DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).subtract(Duration(days: _selectedDate.weekday - 1)).add(Duration(days: day.index)))).toList(),
+                entries: _entriesForWeekday(day),
+                isPastList: _entriesForWeekday(day).map((e) => _isPast(e, DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).subtract(Duration(days: _selectedDate.weekday - 1)).add(Duration(days: day.index)))).toList(),
                 primaryIndex:
-                    _primaryIndex(_entriesForWeekday(controller, day), day),
+                    _primaryIndex(_entriesForWeekday(day), day),
                 onOpenDay: () => setState(() {
                   _selectedDay = day;
                   final offset = day.index - _selectedDay.index;
@@ -543,19 +540,17 @@ class _TimetableScreenState extends State<TimetableScreen> with WidgetsBindingOb
 
   bool _isPast(TimetableEntry entry, DateTime dateOfEntry) {
     final now = DateTime.now();
-    if (dateOfEntry.year < now.year || (dateOfEntry.year == now.year && dateOfEntry.month < now.month) || (dateOfEntry.year == now.year && dateOfEntry.month == now.month && dateOfEntry.day < now.day)) return true;
-    if (dateOfEntry.year > now.year || (dateOfEntry.year == now.year && dateOfEntry.month > now.month) || (dateOfEntry.year == now.year && dateOfEntry.month == now.month && dateOfEntry.day > now.day)) return false;
+    if (dateOfEntry.year != now.year || dateOfEntry.month != now.month || dateOfEntry.day != now.day) return false;
     final end = DateTime(now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     return now.isAfter(end);
   }
 
-  List<TimetableEntry> _entriesForWeekday(
-      TimetableController controller, Weekday day) {
+  List<TimetableEntry> _entriesForWeekday(Weekday day) {
     final weekStart =
         DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)
             .subtract(Duration(days: _selectedDate.weekday - 1));
     final weekEnd = weekStart.add(const Duration(days: 7));
-    return controller.forDay(day, scheduleKind: _selectedKind).where((entry) {
+    return ref.watch(timetableForDayProvider((day: day, kind: _selectedKind))).where((entry) {
       final date = entry.scheduledDate;
       return entry.repeatWeekly ||
           (date != null && !date.isBefore(weekStart) && date.isBefore(weekEnd));

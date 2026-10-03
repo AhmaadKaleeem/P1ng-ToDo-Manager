@@ -6,14 +6,17 @@ import 'package:todow/presentation/screens/home_screen.dart';
 import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AppShell extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/app_providers.dart';
+
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.services, super.key});
   final AppServices services;
   @override
-  State<AppShell> createState() => AppShellState();
+  ConsumerState<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell>
+class AppShellState extends ConsumerState<AppShell>
     with SingleTickerProviderStateMixin {
   int _index = 0;
   late final AnimationController _animationController;
@@ -27,7 +30,7 @@ class AppShellState extends State<AppShell>
       duration: const Duration(milliseconds: 300),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.services.appController.requestNotificationPermissions();
+      ref.read(notificationPermissionsProvider.notifier).requestPermissions();
     });
   }
 

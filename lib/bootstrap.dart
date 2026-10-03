@@ -22,11 +22,11 @@ import 'package:todow/domain/services/file_storage.dart';
 import 'package:todow/domain/services/focus_service.dart';
 import 'package:todow/domain/services/notification_service.dart';
 import 'package:todow/domain/services/reminder_scheduler.dart';
-import 'package:todow/presentation/controllers/app_controller.dart';
+import 'package:todow/domain/repositories/roadmap_repository.dart';
+
 import 'package:todow/presentation/controllers/focus_controller.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
+
 import 'package:todow/data/local/roadmap_repository_impl.dart';
 
 class AppServices {
@@ -34,6 +34,10 @@ class AppServices {
     required this.taskRepository,
     required this.timetableRepository,
     required this.focusRepository,
+    required this.roadmapRepository,
+    required this.topicRepository,
+    required this.roadmapTaskRepository,
+    required this.roadmapImportRepository,
     required this.notificationService,
     required this.reminderScheduler,
     required this.attachmentRepository,
@@ -41,15 +45,16 @@ class AppServices {
     required this.focusService,
     required this.appBlockingService,
     required this.taskController,
-    required this.timetableController,
     required this.focusController,
-    required this.appController,
-    required this.roadmapController,
   });
 
   final TaskRepository taskRepository;
   final TimetableRepository timetableRepository;
   final FocusRepository focusRepository;
+  final RoadmapRepository roadmapRepository;
+  final TopicRepository topicRepository;
+  final RoadmapTaskRepository roadmapTaskRepository;
+  final RoadmapImportRepository roadmapImportRepository;
   final NotificationService notificationService;
   final ReminderScheduler reminderScheduler;
   final AttachmentRepository attachmentRepository;
@@ -57,10 +62,7 @@ class AppServices {
   final FocusService focusService;
   final AppBlockingService appBlockingService;
   final TaskController taskController;
-  final TimetableController timetableController;
   final FocusController focusController;
-  final AppController appController;
-  final RoadmapController roadmapController;
 }
 
 Future<AppServices> bootstrap() async {
@@ -71,78 +73,61 @@ Future<AppServices> bootstrap() async {
   final attachmentRepo = AttachmentRepositoryImpl(db.db);
   final appDirPath = kIsWeb ? '' : (await getApplicationDocumentsDirectory()).path;
   final fileStorage = FileStorageImpl(kIsWeb ? '/dummy' : p.join(appDirPath, 'attachments'));
-  
+
   if (!kIsWeb) {
     await migrateAttachmentPaths(attachmentRepo, p.join(appDirPath, 'attachments'));
   }
 
   final appBlocking = AppBlockingServiceStub();
 
-  late TaskController taskController;
-  late ReminderScheduler reminderScheduler;
+  // H3: Use an explicit handler so the notification callback never captures
+  // a `late` variable that may not yet be initialised when the callback fires.
+  final actionHandler = _NotificationActionHandler(taskRepo);
 
   final notifications = NotificationServiceImpl(
-    onAction: (payload, action) async {
-      if (payload == null) return;
-      final task = await taskRepo.getById(payload);
-      if (task == null) return;
-      switch (action) {
-        case 'complete':
-          await taskController.completeTask(task.id);
-        case 'snooze':
-          final reminders = await taskRepo.getRemindersForTask(task.id);
-          final active = reminders.where((r) => r.isActive).firstOrNull;
-          if (active != null) {
-            await reminderScheduler.snoozeReminder(
-              active,
-              const Duration(minutes: 15),
-            );
-          }
-        case 'open':
-        default:
-          break;
-      }
-    },
+    onAction: actionHandler.handle,
   );
 
   await notifications.initialize();
 
-  reminderScheduler = ReminderSchedulerImpl(taskRepo, timetableRepo, notifications);
+  final reminderScheduler = ReminderSchedulerImpl(taskRepo, timetableRepo, notifications);
   await reminderScheduler.recoverPendingReminders();
+
   final focusService = FocusServiceImpl(focusRepo, appBlocking);
   await focusService.restoreActiveSession();
-  
+
   await cleanupOrphanedAttachments(taskRepo);
 
-  taskController = TaskController(
+  final taskController = TaskController(
     taskRepo,
     reminderScheduler,
     attachmentRepo,
     fileStorage,
   );
-  final timetableController = TimetableController(timetableRepo);
+
+  // Inject the controller and scheduler into the handler now that both exist.
+  actionHandler.taskController = taskController;
+  actionHandler.reminderScheduler = reminderScheduler;
+
   final focusController = FocusController(focusService);
-  final appController = AppController(notifications);
+
 
   await taskController.loadTasks();
-  await timetableController.load();
 
   final roadmapRepo = RoadmapRepositoryImpl(db);
   final topicRepo = TopicRepositoryImpl(db);
   final roadmapTaskRepo = RoadmapTaskRepositoryImpl(db);
   final roadmapImportRepo = RoadmapImportRepositoryImpl(db);
-  final roadmapController = RoadmapController(
-    roadmapRepo: roadmapRepo,
-    topicRepo: topicRepo,
-    taskRepo: roadmapTaskRepo,
-    importRepo: roadmapImportRepo,
-  );
-  await roadmapController.load();
+
 
   return AppServices(
     taskRepository: taskRepo,
     timetableRepository: timetableRepo,
     focusRepository: focusRepo,
+    roadmapRepository: roadmapRepo,
+    topicRepository: topicRepo,
+    roadmapTaskRepository: roadmapTaskRepo,
+    roadmapImportRepository: roadmapImportRepo,
     notificationService: notifications,
     reminderScheduler: reminderScheduler,
     attachmentRepository: attachmentRepo,
@@ -150,12 +135,46 @@ Future<AppServices> bootstrap() async {
     focusService: focusService,
     appBlockingService: appBlocking,
     taskController: taskController,
-    timetableController: timetableController,
     focusController: focusController,
-    appController: appController,
-    roadmapController: roadmapController,
   );
 }
+
+/// Holds references to app services needed to handle notification actions.
+/// References are set after construction so neither side needs `late` captures.
+class _NotificationActionHandler {
+  _NotificationActionHandler(this._taskRepo);
+
+  final TaskRepository _taskRepo;
+  TaskController? taskController;
+  ReminderScheduler? reminderScheduler;
+
+  Future<void> handle(String? payload, String? action) async {
+    if (payload == null) return;
+    final tc = taskController;
+    final rs = reminderScheduler;
+    // If services aren't ready yet (very early callback), silently drop.
+    if (tc == null || rs == null) {
+      debugPrint('Notification action "$action" received before services ready, ignoring.');
+      return;
+    }
+    final task = await _taskRepo.getById(payload);
+    if (task == null) return;
+    switch (action) {
+      case 'complete':
+        await tc.completeTask(task.id);
+      case 'snooze':
+        final reminders = await _taskRepo.getRemindersForTask(task.id);
+        final active = reminders.where((r) => r.isActive).firstOrNull;
+        if (active != null) {
+          await rs.snoozeReminder(active, const Duration(minutes: 15));
+        }
+      case 'open':
+      default:
+        break;
+    }
+  }
+}
+
 
 extension _FirstOrNull<E> on Iterable<E> {
   E? get firstOrNull {

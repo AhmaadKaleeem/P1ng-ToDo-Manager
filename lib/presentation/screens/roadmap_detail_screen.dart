@@ -4,11 +4,12 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
 import 'package:todow/presentation/screens/roadmap_import_screen.dart';
 import 'package:todow/presentation/widgets/roadmap_spine_painter.dart';
 import 'package:todow/presentation/widgets/topic_card.dart';
@@ -37,15 +38,15 @@ Color _roadmapAccent(Roadmap r) {
   return _kDetailPalette[idx];
 }
 
-class RoadmapDetailScreen extends StatefulWidget {
+class RoadmapDetailScreen extends ConsumerStatefulWidget {
   const RoadmapDetailScreen({required this.roadmap, super.key});
   final Roadmap roadmap;
 
   @override
-  State<RoadmapDetailScreen> createState() => _RoadmapDetailScreenState();
+  ConsumerState<RoadmapDetailScreen> createState() => _RoadmapDetailScreenState();
 }
 
-class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
+class _RoadmapDetailScreenState extends ConsumerState<RoadmapDetailScreen>
     with SingleTickerProviderStateMixin {
   late Roadmap _roadmap;
   List<Topic> _topics = [];
@@ -76,7 +77,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
   }
 
   Future<void> _loadData() async {
-    final ctrl = context.read<RoadmapController>();
+    final ctrl = ref.read(roadmapsProvider.notifier);
     final topics = await ctrl.getTopics(_roadmap.id);
     final tasks = await ctrl.getTasksByRoadmap(_roadmap.id);
     if (!mounted) return;
@@ -136,14 +137,13 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
 
   Future<void> _reloadRoadmapTasks() async {
     final tasks =
-        await context.read<RoadmapController>().getTasksByRoadmap(_roadmap.id);
+        await ref.read(roadmapsProvider.notifier).getTasksByRoadmap(_roadmap.id);
     if (mounted) setState(() => _tasks = tasks);
   }
 
   Future<void> _exportRoadmap(bool excel) async {
     try {
-      final tasks = await context
-          .read<RoadmapController>()
+      final tasks = await ref.read(roadmapsProvider.notifier)
           .getTasksByRoadmap(_roadmap.id);
       final rows = <List<String>>[
         const [
@@ -413,8 +413,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                                                   final updated = _topics[i]
                                                       .copyWith(
                                                           status: newStatus);
-                                                  await context
-                                                      .read<RoadmapController>()
+                                                  await ref.read(roadmapsProvider.notifier)
                                                       .updateTopic(updated);
                                                   _loadData();
                                                 },
@@ -508,7 +507,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
                         onPressed: () async {
                           final title = titleCtrl.text.trim();
                           if (title.isEmpty) return;
-                          await context.read<RoadmapController>().createTopic(
+                          await ref.read(roadmapsProvider.notifier).createTopic(
                               roadmapId: _roadmap.id,
                               title: title,
                               orderIndex: _topics.length);
@@ -552,7 +551,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
       ),
     );
     if (delete != true || !mounted) return;
-    await context.read<RoadmapController>().deleteTopic(topic.id);
+    await ref.read(roadmapsProvider.notifier).deleteTopic(topic.id);
     await _loadData();
   }
 
@@ -567,7 +566,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
       ),
     );
     if (edits != null && mounted) {
-      await context.read<RoadmapController>().updateTopic(
+      await ref.read(roadmapsProvider.notifier).updateTopic(
             topic.copyWith(
               title: edits.title,
               description: edits.description,
@@ -594,30 +593,34 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen>
         description: edits.description,
         clearDescription: edits.description.isEmpty,
       );
-      await context.read<RoadmapController>().updateRoadmap(edited);
+      await ref.read(roadmapsProvider.notifier).updateRoadmap(edited);
       if (mounted) setState(() => _roadmap = edited);
     }
   }
 
   Future<void> _confirmDeleteRoadmap() async {
-    final delete = await showDialog<bool>(
+    final deleteMode = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete roadmap?'),
         content: Text(
-            '“${_roadmap.title}” will be removed. Its tasks will stay in Todow.'),
+            '“${_roadmap.title}” will be removed. What do you want to do with its tasks?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, 0),
               child: const Text('Cancel')),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              onPressed: () => Navigator.pop(context, 1),
+              child: const Text('Keep tasks')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, 2),
+              style: TextButton.styleFrom(foregroundColor: AppColors.alert),
+              child: const Text('Delete all')),
         ],
       ),
     );
-    if (delete != true || !mounted) return;
-    await context.read<RoadmapController>().deleteRoadmap(_roadmap.id);
+    if (deleteMode == null || deleteMode == 0 || !mounted) return;
+    await ref.read(roadmapsProvider.notifier).deleteRoadmap(_roadmap.id, deleteTasks: deleteMode == 2);
     if (mounted) Navigator.of(context).pop();
   }
 }

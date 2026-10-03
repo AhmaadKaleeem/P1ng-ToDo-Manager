@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 
 enum TimeFilter { today, thisWeek, upcoming, all, custom }
+
+
 
 class _CustomDateSelection {
   const _CustomDateSelection({this.range, this.dates = const {}});
@@ -15,17 +18,17 @@ class _CustomDateSelection {
   final Set<DateTime> dates;
 }
 
-class TaskTimeView extends StatefulWidget {
+class TaskTimeView extends ConsumerStatefulWidget {
   const TaskTimeView(
       {required this.roadmapId, required this.topics, super.key});
   final String roadmapId;
   final List<Topic> topics;
 
   @override
-  State<TaskTimeView> createState() => _TaskTimeViewState();
+  ConsumerState<TaskTimeView> createState() => _TaskTimeViewState();
 }
 
-class _TaskTimeViewState extends State<TaskTimeView> {
+class _TaskTimeViewState extends ConsumerState<TaskTimeView> {
   TimeFilter _filter = TimeFilter.all;
   List<Task> _tasks = [];
   bool _loading = true;
@@ -40,7 +43,7 @@ class _TaskTimeViewState extends State<TaskTimeView> {
 
   Future<void> _loadTasks() async {
     setState(() => _loading = true);
-    final ctrl = context.read<RoadmapController>();
+    final ctrl = ref.read(roadmapsProvider.notifier);
 
     DateTime? from;
     DateTime? to;

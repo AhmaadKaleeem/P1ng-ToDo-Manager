@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
+import 'package:provider/provider.dart' hide Consumer;
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
@@ -8,21 +9,34 @@ import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'package:todow/presentation/widgets/attachments_section.dart';
 
+import 'package:todow/core/providers/service_providers.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
+import 'package:todow/domain/repositories/attachment_repository.dart';
+import 'package:todow/domain/services/file_storage.dart';
 import 'task_controller_test.dart';
 
 class TestAttachmentsSection extends StatelessWidget {
   final Task? task;
-  final TaskController controller;
+  final AttachmentRepository attachmentRepo;
+  final FileStorage fileStorage;
 
-  const TestAttachmentsSection({super.key, this.task, required this.controller});
+  const TestAttachmentsSection({
+    super.key,
+    this.task,
+    required this.attachmentRepo,
+    required this.fileStorage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: ChangeNotifierProvider<TaskController>.value(
-          value: controller,
-          child: AttachmentsSection(task: task),
+    return ProviderScope(
+      overrides: [
+        fileStorageProvider.overrideWithValue(fileStorage),
+        attachmentRepositoryProvider.overrideWithValue(attachmentRepo),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          body: AttachmentsSection(task: task),
         ),
       ),
     );
@@ -32,10 +46,11 @@ class TestAttachmentsSection extends StatelessWidget {
 void main() {
   testWidgets('renders "No attachments" when the list is empty', (tester) async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
+    final mockAttachmentRepo = MockAttachmentRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), mockAttachmentRepo, MockFileStorage());
     final task = Task(id: '1', title: 'Task', description: '', status: TaskStatus.active, priority: TaskPriority.low, createdAt: DateTime.now(), updatedAt: DateTime.now(), tags: [], reminderPlan: const ReminderPlan(preset: ReminderPreset.custom, offsets: [], constantReminder: false), sourceType: TaskSourceType.local, sortOrder: 0);
     
-    await tester.pumpWidget(TestAttachmentsSection(task: task, controller: controller));
+    await tester.pumpWidget(TestAttachmentsSection(task: task, attachmentRepo: mockAttachmentRepo, fileStorage: MockFileStorage()));
     await tester.pumpAndSettle();
     
     expect(find.text('No attachments'), findsOneWidget);
@@ -43,9 +58,10 @@ void main() {
 
   testWidgets('section is not built when widget.task == null', (tester) async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
+    final mockAttachmentRepo = MockAttachmentRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), mockAttachmentRepo, MockFileStorage());
     
-    await tester.pumpWidget(TestAttachmentsSection(task: null, controller: controller));
+    await tester.pumpWidget(TestAttachmentsSection(task: null, attachmentRepo: mockAttachmentRepo, fileStorage: MockFileStorage()));
     await tester.pumpAndSettle();
     
     expect(find.text('ATTACHMENTS'), findsNothing);
@@ -63,7 +79,7 @@ void main() {
     await mockAttachmentRepo.create(att1);
     await mockAttachmentRepo.create(att2);
     
-    await tester.pumpWidget(TestAttachmentsSection(task: task, controller: controller));
+    await tester.pumpWidget(TestAttachmentsSection(task: task, attachmentRepo: mockAttachmentRepo, fileStorage: MockFileStorage()));
     await tester.pumpAndSettle();
     
     // Custom row widget assumed
@@ -74,10 +90,11 @@ void main() {
 
   testWidgets('[+ Add] button is present when editing', (tester) async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
+    final mockAttachmentRepo = MockAttachmentRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), mockAttachmentRepo, MockFileStorage());
     final task = Task(id: '1', title: 'Task', description: '', status: TaskStatus.active, priority: TaskPriority.low, createdAt: DateTime.now(), updatedAt: DateTime.now(), tags: [], reminderPlan: const ReminderPlan(preset: ReminderPreset.custom, offsets: [], constantReminder: false), sourceType: TaskSourceType.local, sortOrder: 0);
     
-    await tester.pumpWidget(TestAttachmentsSection(task: task, controller: controller));
+    await tester.pumpWidget(TestAttachmentsSection(task: task, attachmentRepo: mockAttachmentRepo, fileStorage: MockFileStorage()));
     await tester.pumpAndSettle();
     
     expect(find.text('+ Add'), findsOneWidget);
@@ -85,10 +102,11 @@ void main() {
 
   testWidgets('section label reads "ATTACHMENTS"', (tester) async {
     final mockRepo = MockTaskRepository();
-    final controller = TaskController(mockRepo, MockReminderScheduler(), MockAttachmentRepository(), MockFileStorage());
+    final mockAttachmentRepo = MockAttachmentRepository();
+    final controller = TaskController(mockRepo, MockReminderScheduler(), mockAttachmentRepo, MockFileStorage());
     final task = Task(id: '1', title: 'Task', description: '', status: TaskStatus.active, priority: TaskPriority.low, createdAt: DateTime.now(), updatedAt: DateTime.now(), tags: [], reminderPlan: const ReminderPlan(preset: ReminderPreset.custom, offsets: [], constantReminder: false), sourceType: TaskSourceType.local, sortOrder: 0);
     
-    await tester.pumpWidget(TestAttachmentsSection(task: task, controller: controller));
+    await tester.pumpWidget(TestAttachmentsSection(task: task, attachmentRepo: mockAttachmentRepo, fileStorage: MockFileStorage()));
     await tester.pumpAndSettle();
     
     expect(find.text('ATTACHMENTS'), findsOneWidget);

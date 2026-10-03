@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
@@ -8,9 +8,10 @@ import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/subtask.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/reminders/reminder_presets.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/timetable_providers.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
 import 'package:todow/presentation/widgets/attachments_section.dart';
 import 'package:todow/presentation/widgets/reminders_section.dart';
 import 'package:todow/presentation/widgets/subtasks_section.dart';
@@ -18,8 +19,8 @@ import 'package:todow/presentation/widgets/subtasks_section.dart';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const _kRoadmaps = [
-  'Master Roadmap',
   'Daily Tasks',
+  'Master Roadmap',
   'Personal Notes',
   'Study',
 ];
@@ -45,15 +46,15 @@ class _PriorityMeta {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class TaskEditorScreen extends StatefulWidget {
+class TaskEditorScreen extends ConsumerStatefulWidget {
   final Task? task;
   final String? topicId;
   const TaskEditorScreen({super.key, this.task, this.topicId});
   @override
-  State<TaskEditorScreen> createState() => _TaskEditorScreenState();
+  ConsumerState<TaskEditorScreen> createState() => _TaskEditorScreenState();
 }
 
-class _TaskEditorScreenState extends State<TaskEditorScreen>
+class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen>
     with TickerProviderStateMixin {
   // State
   late final TextEditingController _title;
@@ -88,7 +89,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     _workingTask = widget.task;
     final taskId = _workingTask?.id;
     _isOnPersonalTimetable = taskId != null &&
-        context.read<TimetableController>().entries.any(
+        (ref.read(timetableProvider).valueOrNull ?? []).any(
               (entry) =>
                   entry.taskId == taskId &&
                   entry.scheduleKind == TimetableKind.personal,
@@ -133,7 +134,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     if (topicId == null) {
       return;
     }
-    final controller = context.read<RoadmapController>();
+    final controller = ref.read(roadmapsProvider.notifier);
     final topic = await controller.getTopic(topicId);
     final roadmap =
         topic == null ? null : await controller.getRoadmap(topic.roadmapId);
@@ -234,7 +235,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
 
   Future<Task> _autoSave() async {
     if (_workingTask != null) return _workingTask!;
-    final tc = context.read<TaskController>();
+    final tc = ref.read(tasksProvider.notifier);
     final ttl = _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim();
     final task = await tc.createTask(
       title: ttl,
@@ -283,7 +284,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     try {
-      final taskController = context.read<TaskController>();
+      final taskController = ref.read(tasksProvider.notifier);
       final task = _workingTask == null
           ? await _autoSave()
           : await taskController.updateTask(
@@ -301,8 +302,8 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
             );
       if (!mounted) return;
       setState(() => _workingTask = task);
-      final timetable = context.read<TimetableController>();
-      final alreadyScheduled = timetable.entries.any(
+      final entries = ref.read(timetableProvider).valueOrNull ?? [];
+      final alreadyScheduled = entries.any(
         (entry) =>
             entry.taskId == task.id &&
             entry.scheduleKind == TimetableKind.personal,
@@ -310,7 +311,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
       if (!alreadyScheduled) {
         final start =
             DateTime(date.year, date.month, date.day, time.hour, time.minute);
-        await timetable.add(
+        await ref.read(timetableProvider.notifier).add(
           courseName: task.title,
           instructor: task.description,
           weekday: WeekdayExt.fromDartWeekday(date.weekday),
@@ -339,7 +340,7 @@ class _TaskEditorScreenState extends State<TaskEditorScreen>
 
   void _save() {
     if (_title.text.trim().isNotEmpty) {
-      final tc = context.read<TaskController>();
+      final tc = ref.read(tasksProvider.notifier);
       if (_workingTask == null) {
         tc.createTask(
           title: _title.text.trim(),

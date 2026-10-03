@@ -8,13 +8,14 @@ import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
-import 'package:todow/presentation/controllers/app_controller.dart';
 import 'package:todow/presentation/screens/roadmap_list_screen.dart';
 import 'package:todow/presentation/screens/task_editor_screen.dart';
 import 'package:todow/presentation/screens/timetable_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/app_providers.dart';
+import 'package:todow/presentation/providers/timetable_providers.dart';
 import 'package:todow/presentation/widgets/corner_arc_decor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:todow/domain/models/query.dart';
@@ -24,13 +25,13 @@ import 'package:todow/presentation/screens/app_shell.dart';
 const _softShadow =
     BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2));
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _insertingBelowId;
   Map<String, int> _attachmentCounts = {};
   bool _isFilterExpanded = false;
@@ -52,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _attachmentCounts = counts;
           _username = prefs.getString('username');
         });
-        context.read<AppController>().requestNotificationPermissions();
+        ref.read(notificationPermissionsProvider.notifier).requestPermissions();
       }
     });
   }
@@ -138,13 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _todayClasses(TimetableController controller) {
+  Widget _todayClasses() {
     final now = DateTime.now();
     final weekday = WeekdayExt.fromDartWeekday(now.weekday);
-    final classes = controller.forDay(
-      weekday,
-      scheduleKind: TimetableKind.university,
-    );
+    final filter = (day: weekday, kind: TimetableKind.university);
+    final classes = ref.watch(timetableForDayProvider(filter));
+    
     var highlighted = -1;
     for (var i = 0; i < classes.length; i++) {
       final entry = classes[i];
@@ -356,7 +356,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final tc = context.watch<TaskController>();
-    final timetable = context.watch<TimetableController>();
     final allActive =
         tc.visibleTasks.where((t) => t.status == TaskStatus.active).toList();
     final active = allActive.take(_taskLimit).toList();
@@ -368,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
             sort: tc.sort));
     final done = allCompleted;
 
-    final roadmapCount = context.watch<RoadmapController>().roadmaps.length;
+    final roadmapCount = ref.watch(roadmapsProvider).valueOrNull?.length ?? 0;
     final featuredCategories = _featuredCategorySummaries(
       tc.tasks.where((task) => task.topicId == null),
     );
@@ -502,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SliverToBoxAdapter(child: SizedBox(height: 28)),
                   SliverToBoxAdapter(child: _todayWork(tc)),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  SliverToBoxAdapter(child: _todayClasses(timetable)),
+                  SliverToBoxAdapter(child: _todayClasses()),
                   const SliverToBoxAdapter(child: SizedBox(height: 28)),
                   SliverToBoxAdapter(
                     child: Padding(
@@ -1270,7 +1269,7 @@ class _TaskRowState extends State<_TaskRow>
           key: ValueKey(widget.task.id),
           startActionPane: ActionPane(
             motion: const DrawerMotion(),
-            extentRatio: 0.22,
+            extentRatio: 0.44,
             children: [
               if (widget.task.isCompleted)
                 CustomSlidableAction(
@@ -1294,6 +1293,24 @@ class _TaskRowState extends State<_TaskRow>
                     color: AppColors.attention,
                   ),
                 ),
+              CustomSlidableAction(
+                onPressed: (_) async {
+                  try {
+                    await widget.controller.togglePinTask(widget.task.id);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString())),
+                    );
+                  }
+                },
+                backgroundColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                child: _SwipeActionTile(
+                  icon: widget.task.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: AppColors.action,
+                ),
+              ),
             ],
           ),
           endActionPane: ActionPane(
@@ -1443,6 +1460,10 @@ class _TaskRowState extends State<_TaskRow>
                       ),
                     ),
                   ),
+                if (widget.task.isPinned) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.push_pin, size: 14, color: AppColors.action),
+                ],
                 if (widget.attachmentCount > 0) ...[
                   const SizedBox(width: 8),
                   Icon(Icons.attach_file,
@@ -1521,7 +1542,7 @@ class _QuickAddState extends State<_QuickAdd> {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => const TaskEditorScreen()));
     } else {
-      widget.controller.createTask(title: text, category: 'Master Roadmap');
+      widget.controller.createTask(title: text, category: 'Daily Tasks');
       _ctrl.clear();
       _focus.unfocus();
     }
@@ -1912,6 +1933,7 @@ class _TodayClassRow extends StatelessWidget {
     final end = DateTime(
         now.year, now.month, now.day, entry.endTime.hour, entry.endTime.minute);
     final current = !now.isBefore(start) && now.isBefore(end);
+    final isPast = now.isAfter(end);
 
     final accentColor = getEntryColor(entry);
 
@@ -1932,7 +1954,8 @@ class _TodayClassRow extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: accentColor)),
+                            decoration: isPast ? TextDecoration.lineThrough : null,
+                            color: isPast ? AppColors.textSecondaryOpacity(0.5) : accentColor)),
                     Expanded(
                       child: Container(
                         width: 3,
@@ -1953,7 +1976,8 @@ class _TodayClassRow extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary)),
+                            decoration: isPast ? TextDecoration.lineThrough : null,
+                            color: isPast ? AppColors.textSecondaryOpacity(0.5) : AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -1982,11 +2006,12 @@ class _TodayClassRow extends StatelessWidget {
                             child: Text(entry.courseName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
-                                    color: AppColors.textPrimary)),
+                                    decoration: isPast ? TextDecoration.lineThrough : null,
+                                    color: isPast ? AppColors.textSecondaryOpacity(0.5) : AppColors.textPrimary)),
                           ),
                           if (current)
                             Container(

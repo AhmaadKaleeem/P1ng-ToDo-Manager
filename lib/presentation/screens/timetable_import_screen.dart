@@ -9,24 +9,25 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
+
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/data/timetable_import_parser.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/timetable_import.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
+import 'package:todow/presentation/providers/timetable_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TimetableImportScreen extends StatefulWidget {
+class TimetableImportScreen extends ConsumerStatefulWidget {
   const TimetableImportScreen({required this.scheduleKind, super.key});
 
   final TimetableKind scheduleKind;
 
   @override
-  State<TimetableImportScreen> createState() => _TimetableImportScreenState();
+  ConsumerState<TimetableImportScreen> createState() => _TimetableImportScreenState();
 }
 
-class _TimetableImportScreenState extends State<TimetableImportScreen> {
+class _TimetableImportScreenState extends ConsumerState<TimetableImportScreen> {
   static const _parser = TimetableImportParser();
   static const _csvPrompt =
       'Extract this timetable to a CSV with headers: course, instructor, day, start_time, end_time, room. One row per class. Use full days (e.g., Monday) and 24h times (e.g., 08:30). Leave missing info blank. Output RAW CSV ONLY.';
@@ -201,11 +202,10 @@ class _TimetableImportScreenState extends State<TimetableImportScreen> {
                     _sourceName = null;
                   }),
                   onImport: (rows) async {
-                    final timetableController =
-                        context.read<TimetableController>();
+                    final timetableNotifier = ref.read(timetableProvider.notifier);
                     setState(() => _loading = true);
                     try {
-                      await timetableController.importEntries(
+                      await timetableNotifier.importEntries(
                           rows, widget.scheduleKind);
                       if (!context.mounted) return;
                       Navigator.pop(context);

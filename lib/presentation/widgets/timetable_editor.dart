@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
-import 'package:todow/presentation/controllers/timetable_controller.dart';
-import 'package:provider/provider.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/timetable_providers.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 import 'package:todow/core/theme/app_colors.dart';
 
 Future<void> showTimetableEditor(
@@ -39,7 +39,7 @@ const List<Color> _kTimetableColors = [
   Color(0xFFEF4444), // red
 ];
 
-class _TimetableEditorSheet extends StatefulWidget {
+class _TimetableEditorSheet extends ConsumerStatefulWidget {
   final TimetableEntry? entry;
   final Weekday? initialWeekday;
   final DateTime? initialDate;
@@ -53,10 +53,10 @@ class _TimetableEditorSheet extends StatefulWidget {
   });
 
   @override
-  State<_TimetableEditorSheet> createState() => _TimetableEditorSheetState();
+  ConsumerState<_TimetableEditorSheet> createState() => _TimetableEditorSheetState();
 }
 
-class _TimetableEditorSheetState extends State<_TimetableEditorSheet> {
+class _TimetableEditorSheetState extends ConsumerState<_TimetableEditorSheet> {
   late TextEditingController _course;
   late TextEditingController _instructor;
   late TextEditingController _room;
@@ -119,7 +119,7 @@ class _TimetableEditorSheetState extends State<_TimetableEditorSheet> {
         now.year, now.month, now.day, _start.hour, _start.minute);
     final endTime =
         DateTime(now.year, now.month, now.day, _end.hour, _end.minute);
-    final controller = context.read<TimetableController>();
+    final controller = ref.read(timetableProvider.notifier);
 
     try {
       if (widget.entry == null) {
@@ -139,7 +139,7 @@ class _TimetableEditorSheetState extends State<_TimetableEditorSheet> {
           room: _room.text.trim(),
         );
       } else {
-        await controller.update(TimetableEntry(
+        await controller.updateEntry(TimetableEntry(
           id: widget.entry!.id,
           courseName: _course.text.trim(),
           instructor: _instructor.text.trim(),
@@ -589,7 +589,7 @@ class _TimetableEditorSheetState extends State<_TimetableEditorSheet> {
                             items: [
                               const DropdownMenuItem<String?>(
                                   value: null, child: Text('No linked task')),
-                              ...context.read<TaskController>().tasks.map((task) =>
+                              ...(ref.read(tasksProvider).valueOrNull ?? []).map((task) =>
                                   DropdownMenuItem<String?>(
                                       value: task.id,
                                       child: Text(task.title,

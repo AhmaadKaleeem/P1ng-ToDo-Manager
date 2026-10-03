@@ -1,27 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/domain/attachment_limits.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'attachment_row.dart';
 
-class AttachmentsSection extends StatefulWidget {
+class AttachmentsSection extends ConsumerStatefulWidget {
   final Task? task;
   final Future<Task> Function()? onAutoSave;
 
   const AttachmentsSection({super.key, this.task, this.onAutoSave});
 
   @override
-  State<AttachmentsSection> createState() => _AttachmentsSectionState();
+  ConsumerState<AttachmentsSection> createState() => _AttachmentsSectionState();
 }
 
-class _AttachmentsSectionState extends State<AttachmentsSection> {
+class _AttachmentsSectionState extends ConsumerState<AttachmentsSection> {
   List<Attachment> _attachments = [];
   bool _isLoading = true;
 
@@ -45,8 +44,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
-    final controller = context.read<TaskController>();
-    final attachments = await controller.getAttachments(tId);
+    final attachments = await ref.read(taskAttachmentsProvider(tId).future);
     if (mounted) {
       setState(() {
         _attachments = attachments;
@@ -75,7 +73,7 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
     }
 
     if (!mounted) return;
-    final controller = context.read<TaskController>();
+    final controller = ref.read(taskAttachmentsNotifierProvider);
     
     try {
       final sizeBytes = await File(file.path!).length();
@@ -106,12 +104,12 @@ class _AttachmentsSectionState extends State<AttachmentsSection> {
   }
   
   Future<void> _openFile(Attachment attachment) async {
-    final controller = context.read<TaskController>();
+    final controller = ref.read(taskAttachmentsNotifierProvider);
     await controller.openAttachment(attachment);
   }
   
   Future<void> _removeAttachment(Attachment attachment) async {
-    final controller = context.read<TaskController>();
+    final controller = ref.read(taskAttachmentsNotifierProvider);
     await controller.removeAttachment(attachment.id);
     _loadAttachments();
   }

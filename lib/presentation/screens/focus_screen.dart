@@ -5,19 +5,19 @@ import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/focus_session.dart';
-import 'package:todow/presentation/controllers/focus_controller.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
-import 'package:provider/provider.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
+import 'package:todow/presentation/providers/focus_providers.dart';
 
-class FocusScreen extends StatefulWidget {
+class FocusScreen extends ConsumerStatefulWidget {
   const FocusScreen({super.key});
 
   @override
-  State<FocusScreen> createState() => _FocusScreenState();
+  ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
 
-class _FocusScreenState extends State<FocusScreen> {
+class _FocusScreenState extends ConsumerState<FocusScreen> {
   Timer? _ticker;
   FocusPreset _preset = FocusPreset.study;
   String? _taskId;
@@ -37,9 +37,10 @@ class _FocusScreenState extends State<FocusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final focus = context.watch<FocusController>();
-    final tasks = context.watch<TaskController>().activeTasks;
-    final session = focus.session;
+    final session = ref.watch(focusSessionProvider);
+    final focus = ref.read(focusSessionProvider.notifier);
+    final tasks = ref.watch(activeTasksProvider).valueOrNull ?? [];
+    
     if (session != null) {
       return _ActiveFocus(
           session: session,
@@ -97,7 +98,7 @@ class _ActiveFocus extends StatelessWidget {
 
   final FocusSession session;
   final Duration remaining;
-  final FocusController focus;
+  final FocusNotifier focus;
 
   @override
   Widget build(BuildContext context) {

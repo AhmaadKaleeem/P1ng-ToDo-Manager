@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide ChangeNotifierProvider;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:todow/core/providers/service_providers.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -14,7 +15,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: TodowApp()));
+  runApp(const TodowApp());
 }
 
 class TodowApp extends StatefulWidget {
@@ -47,23 +48,39 @@ class _TodowAppState extends State<TodowApp> {
         
         final services = snapshot.data!;
         
-        return MultiProvider(
-          providers: [
-            ChangeNotifierProvider.value(value: services.taskController),
-            ChangeNotifierProvider.value(value: services.focusController),
-            ChangeNotifierProvider.value(value: services.timetableController),
-            ChangeNotifierProvider.value(value: services.appController),
-            ChangeNotifierProvider.value(value: services.roadmapController),
+        return ProviderScope(
+          overrides: [
+            taskRepositoryProvider.overrideWithValue(services.taskRepository),
+            timetableRepositoryProvider.overrideWithValue(services.timetableRepository),
+            focusRepositoryProvider.overrideWithValue(services.focusRepository),
+            roadmapRepositoryProvider.overrideWithValue(services.roadmapRepository),
+            topicRepositoryProvider.overrideWithValue(services.topicRepository),
+            roadmapTaskRepositoryProvider.overrideWithValue(services.roadmapTaskRepository),
+            roadmapImportRepositoryProvider.overrideWithValue(services.roadmapImportRepository),
+            notificationServiceProvider.overrideWithValue(services.notificationService),
+            reminderSchedulerProvider.overrideWithValue(services.reminderScheduler),
+            attachmentRepositoryProvider.overrideWithValue(services.attachmentRepository),
+            fileStorageProvider.overrideWithValue(services.fileStorage),
+            focusServiceProvider.overrideWithValue(services.focusService),
+            appBlockingServiceProvider.overrideWithValue(services.appBlockingService),
           ],
-          child: MaterialApp(
-            title: 'Todow',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.dark,
-            initialRoute: AppRoutes.splash,
-            onGenerateRoute: (settings) => AppRouter.generateRoute(settings, services),
-            navigatorObservers: [
-              FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: services.taskController),
+              ChangeNotifierProvider.value(value: services.focusController),
+
+
             ],
+            child: MaterialApp(
+              title: 'Todow',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.dark,
+              initialRoute: AppRoutes.splash,
+              onGenerateRoute: (settings) => AppRouter.generateRoute(settings, services),
+              navigatorObservers: [
+                FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+              ],
+            ),
           ),
         );
       },

@@ -1,21 +1,21 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/domain/models/task.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 
-class AttachmentListWidget extends StatefulWidget {
+class AttachmentListWidget extends ConsumerStatefulWidget {
   const AttachmentListWidget({super.key, required this.task});
   final Task task;
 
   @override
-  State<AttachmentListWidget> createState() => _AttachmentListWidgetState();
+  ConsumerState<AttachmentListWidget> createState() => _AttachmentListWidgetState();
 }
 
-class _AttachmentListWidgetState extends State<AttachmentListWidget> {
+class _AttachmentListWidgetState extends ConsumerState<AttachmentListWidget> {
   List<Attachment> _attachments = [];
   bool _loading = true;
 
@@ -26,8 +26,7 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
   }
 
   Future<void> _load() async {
-    final ctrl = context.read<TaskController>();
-    final atts = await ctrl.getAttachments(widget.task.id);
+    final atts = await ref.read(taskAttachmentsProvider(widget.task.id).future);
     if (!mounted) return;
     setState(() {
       _attachments = atts;
@@ -42,7 +41,7 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
     if (file.path == null) return;
 
     if (!mounted) return;
-    final ctrl = context.read<TaskController>();
+    final ctrl = ref.read(taskAttachmentsNotifierProvider);
     try {
       await ctrl.attachFile(
         widget.task.id,
@@ -196,7 +195,7 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
                     icon: const Icon(CupertinoIcons.trash, size: 20),
                     color: AppColors.alert,
                     onPressed: () async {
-                      final ctrl = context.read<TaskController>();
+                      final ctrl = ref.read(taskAttachmentsNotifierProvider);
                       await ctrl.removeAttachment(a.id);
                       await _load();
                     },
@@ -205,7 +204,7 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
                     icon: const Icon(CupertinoIcons.eye, size: 20),
                     color: AppColors.textSecondary,
                     onPressed: () async {
-                      final ctrl = context.read<TaskController>();
+                      final ctrl = ref.read(taskAttachmentsNotifierProvider);
                       await ctrl.openAttachment(a);
                     },
                   ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/roadmap.dart';
-import 'package:todow/presentation/controllers/roadmap_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/roadmap_providers.dart';
 import 'package:todow/presentation/screens/roadmap_detail_screen.dart';
 import 'package:todow/presentation/screens/roadmap_import_screen.dart';
 
@@ -136,16 +137,16 @@ int _autoPreviewIndex(String title) =>
 LinearGradient _gradient(Roadmap r) => _kPalette[_resolvedIndex(r)].grad;
 Color _accent(Roadmap r) => _kPalette[_resolvedIndex(r)].solid;
 
-class RoadmapListScreen extends StatelessWidget {
+class RoadmapListScreen extends ConsumerWidget {
   const RoadmapListScreen({super.key});
 
-  Future<void> _editRoadmap(BuildContext context, Roadmap roadmap) async {
+  Future<void> _editRoadmap(BuildContext context, WidgetRef ref, Roadmap roadmap) async {
     final edits = await showDialog<_RoadmapEdits>(
       context: context,
       builder: (_) => _RoadmapEditDialog(roadmap: roadmap),
     );
     if (edits == null || !context.mounted) return;
-    await context.read<RoadmapController>().updateRoadmap(
+    await ref.read(roadmapsProvider.notifier).updateRoadmap(
           roadmap.copyWith(
             title: edits.title,
             description: edits.description,
@@ -155,7 +156,7 @@ class RoadmapListScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final canGoBack = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -236,17 +237,19 @@ class RoadmapListScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: Consumer<RoadmapController>(
-                builder: (context, ctrl, _) {
-                  if (ctrl.loading) {
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final state = ref.watch(roadmapsProvider);
+                  if (state.isLoading) {
                     return const Center(
                         child: CircularProgressIndicator(
                             color: AppColors.action, strokeWidth: 2));
                   }
-                  if (ctrl.roadmaps.isEmpty) {
+                  final roadmaps = state.valueOrNull ?? [];
+                  if (roadmaps.isEmpty) {
                     return _EmptyState(
                       onCreate: () =>
-                          _NewRoadmapButton().showCreateDialog(context),
+                          _NewRoadmapButton().showCreateDialog(context, ref),
                       onImport: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -256,11 +259,11 @@ class RoadmapListScreen extends StatelessWidget {
                   return ReorderableListView.builder(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
                     buildDefaultDragHandles: false,
-                    onReorder:
-                        context.read<RoadmapController>().reorderRoadmaps,
-                    itemCount: ctrl.roadmaps.length,
+                    onReorder: (oldIndex, newIndex) =>
+                        ref.read(roadmapsProvider.notifier).reorderRoadmaps(oldIndex, newIndex),
+                    itemCount: roadmaps.length,
                     itemBuilder: (context, i) {
-                      final roadmap = ctrl.roadmaps[i];
+                      final roadmap = roadmaps[i];
                       return _RoadmapCard(
                         key: ValueKey(roadmap.id),
                         roadmap: roadmap,
@@ -272,19 +275,19 @@ class RoadmapListScreen extends StatelessWidget {
                               builder: (_) =>
                                   RoadmapDetailScreen(roadmap: roadmap)),
                         ),
-                        onDelete: () => context
-                            .read<RoadmapController>()
+                        onDelete: () => ref
+                            .read(roadmapsProvider.notifier)
                             .deleteRoadmap(roadmap.id),
-                        onEdit: () => _editRoadmap(context, roadmap),
+                        onEdit: () => _editRoadmap(context, ref, roadmap),
                         onMoveUp: i == 0
                             ? null
-                            : () => context
-                                .read<RoadmapController>()
+                            : () => ref
+                                .read(roadmapsProvider.notifier)
                                 .reorderRoadmaps(i, i - 1),
-                        onMoveDown: i == ctrl.roadmaps.length - 1
+                        onMoveDown: i == roadmaps.length - 1
                             ? null
-                            : () => context
-                                .read<RoadmapController>()
+                            : () => ref
+                                .read(roadmapsProvider.notifier)
                                 .reorderRoadmaps(i, i + 2),
                       );
                     },
@@ -429,10 +432,10 @@ class _ImportButton extends StatelessWidget {
       );
 }
 
-class _NewRoadmapButton extends StatelessWidget {
+class _NewRoadmapButton extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) => FilledButton(
-        onPressed: () => showCreateDialog(context),
+  Widget build(BuildContext context, WidgetRef ref) => FilledButton(
+        onPressed: () => showCreateDialog(context, ref),
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.action,
           foregroundColor: Colors.white,
@@ -445,7 +448,7 @@ class _NewRoadmapButton extends StatelessWidget {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       );
 
-  void showCreateDialog(BuildContext context) {
+  void showCreateDialog(BuildContext context, WidgetRef ref) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     // -1 = user has not explicitly chosen a colour yet
@@ -468,7 +471,7 @@ class _NewRoadmapButton extends StatelessWidget {
             onSave: () {
               final title = titleCtrl.text.trim();
               if (title.isEmpty) return;
-              context.read<RoadmapController>().createRoadmap(
+              ref.read(roadmapsProvider.notifier).createRoadmap(
                   title: title,
                   description: descCtrl.text.trim().isEmpty
                       ? null

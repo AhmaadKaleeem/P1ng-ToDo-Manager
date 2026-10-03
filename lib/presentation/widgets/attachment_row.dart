@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
+import 'package:todow/core/providers/service_providers.dart';
 import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/domain/models/attachment.dart';
 
-class AttachmentRow extends StatelessWidget {
+class AttachmentRow extends ConsumerWidget {
   final Attachment attachment;
   final VoidCallback? onTap;
 
@@ -33,7 +34,7 @@ class AttachmentRow extends StatelessWidget {
     return Icons.insert_drive_file_outlined;
   }
 
-  Future<void> _showRenameDialog(BuildContext context, TaskController controller) async {
+  Future<void> _showRenameDialog(BuildContext context, TaskAttachmentsNotifier controller) async {
     final textController = TextEditingController(text: attachment.filename);
     textController.selection = TextSelection(baseOffset: 0, extentOffset: textController.text.length);
     String? errorText;
@@ -84,10 +85,11 @@ class AttachmentRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final controller = context.read<TaskController>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(taskAttachmentsNotifierProvider);
+    final fileStorage = ref.read(fileStorageProvider);
     final isImage = attachment.mimeType.startsWith('image/');
-    final thumbPath = isImage ? controller.getThumbnailPath(attachment.taskId, attachment.id) : null;
+    final thumbPath = isImage ? fileStorage.thumbnailPath(attachment.taskId, attachment.id) : null;
     final hasThumb = thumbPath != null && File(thumbPath).existsSync();
 
     return Semantics(

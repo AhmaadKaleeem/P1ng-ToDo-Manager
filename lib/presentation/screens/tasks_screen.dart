@@ -3,19 +3,19 @@ import 'package:todow/core/theme/app_colors.dart';
 import 'package:todow/core/utils/date_format.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/query.dart';
-import 'package:todow/presentation/controllers/task_controller.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 
 import 'package:todow/presentation/app.dart';
 
-class TasksScreen extends StatefulWidget {
+class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
 
   @override
-  State<TasksScreen> createState() => _TasksScreenState();
+  ConsumerState<TasksScreen> createState() => _TasksScreenState();
 }
 
-class _TasksScreenState extends State<TasksScreen> {
+class _TasksScreenState extends ConsumerState<TasksScreen> {
   final _search = TextEditingController();
 
   @override
@@ -26,14 +26,15 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<TaskController>();
+    final tasksAsync = ref.watch(visibleTasksProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tasks'),
         actions: [
           PopupMenuButton<TaskSort>(
             icon: const Icon(Icons.sort),
-            onSelected: controller.setSort,
+            onSelected: (sort) => ref.read(taskSortProvider.notifier).state = sort,
             itemBuilder: (_) => const [
               PopupMenuItem(
                   value: TaskSort.dueDateAsc, child: Text('Due soonest')),
@@ -51,25 +52,27 @@ class _TasksScreenState extends State<TasksScreen> {
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
           child: TextField(
             controller: _search,
-            onChanged: controller.setQuery,
+            onChanged: (val) => ref.read(taskSearchQueryProvider.notifier).state = val,
             decoration: const InputDecoration(
                 hintText: 'Search tasks', prefixIcon: Icon(Icons.search)),
           ),
         ),
         Expanded(
-          child: controller.loading
-              ? const Center(child: CircularProgressIndicator())
-              : controller.tasks.isEmpty
-                  ? const AppEmptyState(
-                      title: 'No tasks yet',
-                      message: 'Capture the next thing you need to remember.')
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                      itemCount: controller.tasks.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, index) =>
-                          TaskRow(task: controller.tasks[index]),
-                    ),
+          child: tasksAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text(err.toString())),
+            data: (tasks) => tasks.isEmpty
+                ? const AppEmptyState(
+                    title: 'No tasks yet',
+                    message: 'Capture the next thing you need to remember.')
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                    itemCount: tasks.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) =>
+                        TaskRow(task: tasks[index]),
+                  ),
+          ),
         ),
       ]),
       floatingActionButton: FloatingActionButton.extended(
@@ -81,14 +84,14 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 }
 
-class TaskRow extends StatelessWidget {
+class TaskRow extends ConsumerWidget {
   const TaskRow({required this.task, super.key});
 
   final Task task;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = context.read<TaskController>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(tasksProvider.notifier);
     final dueColor =
         task.isOverdue ? AppColors.alert : AppColors.textSecondary;
     return Material(

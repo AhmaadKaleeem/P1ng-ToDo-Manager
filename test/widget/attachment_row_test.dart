@@ -6,6 +6,9 @@ import 'package:todow/domain/models/attachment.dart';
 import 'package:todow/presentation/widgets/attachment_row.dart';
 
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todow/core/providers/service_providers.dart';
+import 'package:todow/presentation/providers/task_providers.dart';
 import 'package:todow/presentation/controllers/task_controller.dart';
 import 'task_controller_test.dart' show MockTaskRepository, MockReminderScheduler, MockAttachmentRepository, MockFileStorage;
 
@@ -52,11 +55,14 @@ void main() {
     
     final controller = TaskController(mockRepo, MockReminderScheduler(), mockAttachmentRepo, mockFs);
 
-    return MaterialApp(
-      home: Scaffold(
-        body: ChangeNotifierProvider<TaskController>.value(
-          value: controller,
-          child: AttachmentRow(attachment: attachment),
+    return ProviderScope(
+      overrides: [
+        fileStorageProvider.overrideWithValue(mockFs),
+        attachmentRepositoryProvider.overrideWithValue(mockAttachmentRepo),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          body: AttachmentRow(attachment: attachment),
         ),
       ),
     );
