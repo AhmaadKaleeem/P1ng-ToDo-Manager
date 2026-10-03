@@ -29,6 +29,7 @@ class Task {
     this.sourceType = TaskSourceType.local,
     this.sourceId,
     this.sortOrder = 0,
+    this.isPinned = false,
   });
 
   final String id;
@@ -49,6 +50,7 @@ class Task {
   final TaskSourceType sourceType;
   final String? sourceId;
   final int sortOrder;
+  final bool isPinned;
 
   bool get hasAttachments => attachments.isNotEmpty;
   bool get hasConstantReminder => reminderPlan.constantReminder;
@@ -90,6 +92,7 @@ class Task {
     TaskSourceType? sourceType,
     String? sourceId,
     int? sortOrder,
+    bool? isPinned,
   }) {
     return Task(
       id: id,
@@ -110,6 +113,7 @@ class Task {
       sourceType: sourceType ?? this.sourceType,
       sourceId: sourceId ?? this.sourceId,
       sortOrder: sortOrder ?? this.sortOrder,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -130,6 +134,7 @@ class Task {
         'source_type': sourceType.name,
         'source_id': sourceId,
         'sort_order': sortOrder,
+        'is_pinned': isPinned ? 1 : 0,
       };
 
   factory Task.fromMap(
@@ -164,6 +169,7 @@ class Task {
       sourceType: TaskSourceType.values.byName(map['source_type']! as String),
       sourceId: map['source_id'] as String?,
       sortOrder: map['sort_order'] as int? ?? 0,
+      isPinned: (map['is_pinned'] as int? ?? 0) == 1,
     );
   }
 }

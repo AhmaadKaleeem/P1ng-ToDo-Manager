@@ -14,7 +14,7 @@ class AppDatabase {
     _db = await databaseFactoryFfiWeb.openDatabase(
       pathOverride ?? 'todow.db',
       options: OpenDatabaseOptions(
-        version: 8,
+        version: 9,
         onCreate: createDatabaseSchema,
         onUpgrade: upgradeDatabaseSchema,
       ),

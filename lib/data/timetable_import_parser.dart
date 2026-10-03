@@ -291,37 +291,39 @@ class TimetableImportParser {
       for (var i = 0; i < source.first.length; i++)
         _normalizeHeader(source.first[i]): i,
     };
-    final courseColumn = _column(headers, ['course', 'course_name', 'class']);
-    final dayColumn = _column(headers, ['day', 'weekday']);
-    final startColumn = _column(headers, ['start_time', 'start']);
-    final endColumn = _column(headers, ['end_time', 'end']);
-    if (courseColumn == null ||
-        dayColumn == null ||
-        startColumn == null ||
-        endColumn == null) {
-      return const TimetableImportDraft(
-        rows: [],
-        errors: ['Required columns are course, day, start_time, and end_time.'],
-      );
+    int? courseColumn = _column(headers, ['course', 'course_name', 'class']);
+    int? dayColumn = _column(headers, ['day', 'weekday']);
+    int? startColumn = _column(headers, ['start_time', 'start']);
+    int? endColumn = _column(headers, ['end_time', 'end']);
+    int? instructorColumn = _column(headers, ['instructor', 'teacher', 'professor']);
+    int? roomColumn = _column(headers, ['room', 'lab', 'venue']);
+
+    if (courseColumn == null || dayColumn == null || startColumn == null || endColumn == null) {
+      courseColumn = 0;
+      instructorColumn = 1;
+      dayColumn = 2;
+      startColumn = 3;
+      endColumn = 4;
+      roomColumn = 5;
     }
 
     final rows = <TimetableDraftEntry>[];
     final errors = <String>[];
-    String value(List<String> row, List<String> names) {
-      final index = _column(headers, names);
-      return index == null || index >= row.length ? '' : row[index].trim();
+    String value(List<String> row, int? index) {
+      if (index == null) return '';
+      return index >= row.length ? '' : row[index].trim();
     }
 
     for (var i = 1; i < source.length; i++) {
       final row = source[i];
       if (row.every((cell) => cell.trim().isEmpty)) continue;
-      final dayRaw = value(row, ['day', 'weekday']);
-      final startRaw = value(row, ['start_time', 'start']);
-      final endRaw = value(row, ['end_time', 'end']);
+      final dayRaw = value(row, dayColumn);
+      final startRaw = value(row, startColumn);
+      final endRaw = value(row, endColumn);
       final draft = TimetableDraftEntry(
-        courseName: value(row, ['course', 'course_name', 'class']),
-        instructor: value(row, ['instructor', 'teacher', 'professor']),
-        room: value(row, ['room', 'lab', 'venue']),
+        courseName: value(row, courseColumn),
+        instructor: value(row, instructorColumn),
+        room: value(row, roomColumn),
         weekday: _parseDay(dayRaw),
         startTime: _parseTime(startRaw),
         endTime: _parseTime(endRaw),

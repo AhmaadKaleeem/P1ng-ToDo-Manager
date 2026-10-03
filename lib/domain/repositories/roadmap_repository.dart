@@ -7,7 +7,7 @@ abstract class RoadmapRepository {
   Future<Roadmap> create(Roadmap roadmap);
   Future<Roadmap> update(Roadmap roadmap);
   Future<void> reorder(List<Roadmap> roadmaps);
-  Future<void> delete(String id);
+  Future<void> delete(String id, {bool deleteTasks = false});
 }
 
 abstract class TopicRepository {

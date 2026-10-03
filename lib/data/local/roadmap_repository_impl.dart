@@ -51,7 +51,7 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
   }
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String id, {bool deleteTasks = false}) async {
     await _db.db.transaction((txn) async {
       final topics = await txn.query(
         'topics',
@@ -60,12 +60,20 @@ class RoadmapRepositoryImpl implements RoadmapRepository {
         whereArgs: [id],
       );
       for (final topic in topics) {
-        await txn.update(
-          'tasks',
-          {'topic_id': null},
-          where: 'topic_id = ?',
-          whereArgs: [topic['id']],
-        );
+        if (deleteTasks) {
+          await txn.delete(
+            'tasks',
+            where: 'topic_id = ?',
+            whereArgs: [topic['id']],
+          );
+        } else {
+          await txn.update(
+            'tasks',
+            {'topic_id': null},
+            where: 'topic_id = ?',
+            whereArgs: [topic['id']],
+          );
+        }
       }
       await txn.delete('topics', where: 'roadmap_id = ?', whereArgs: [id]);
       await txn.delete('roadmaps', where: 'id = ?', whereArgs: [id]);
@@ -130,7 +138,7 @@ class RoadmapTaskRepositoryImpl implements RoadmapTaskRepository {
         where: 'topic_id = ?',
         whereArgs: [topicId],
         orderBy: 'due_at IS NULL, due_at ASC');
-    return Future.wait(rows.map(_hydrate));
+    return _hydrateBatch(rows);
   }
 
   @override
@@ -159,18 +167,50 @@ class RoadmapTaskRepositoryImpl implements RoadmapTaskRepository {
       whereArgs: args.isEmpty ? null : args,
       orderBy: 'due_at IS NULL, due_at ASC',
     );
-    return Future.wait(rows.map(_hydrate));
+    return _hydrateBatch(rows);
   }
 
-  Future<Task> _hydrate(Map<String, Object?> row) async {
-    final id = row['id']! as String;
-    final subRows = await _db.db.query('subtasks',
-        where: 'task_id = ?', whereArgs: [id], orderBy: 'sort_order ASC');
-    final attRows = await _db.db
-        .query('attachments', where: 'task_id = ?', whereArgs: [id]);
-    return Task.fromMap(row,
-        subtasks: subRows.map(Subtask.fromMap).toList(),
-        attachments: attRows.map(Attachment.fromMap).toList());
+  Future<List<Task>> _hydrateBatch(List<Map<String, Object?>> rows) async {
+    if (rows.isEmpty) return const [];
+    
+    final taskIds = rows.map((r) => r['id']! as String).toList();
+    final subtasksByTask = <String, List<Subtask>>{};
+    final attachmentsByTask = <String, List<Attachment>>{};
+    
+    for (var i = 0; i < taskIds.length; i += 500) {
+      final chunk = taskIds.skip(i).take(500).toList();
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      
+      final subRows = await _db.db.query(
+        'subtasks',
+        where: 'task_id IN ($placeholders)',
+        whereArgs: chunk,
+        orderBy: 'task_id ASC, sort_order ASC',
+      );
+      for (final r in subRows) {
+        final sub = Subtask.fromMap(r);
+        subtasksByTask.putIfAbsent(sub.taskId, () => []).add(sub);
+      }
+      
+      final attRows = await _db.db.query(
+        'attachments',
+        where: 'task_id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      for (final r in attRows) {
+        final att = Attachment.fromMap(r);
+        attachmentsByTask.putIfAbsent(att.taskId, () => []).add(att);
+      }
+    }
+
+    return rows.map((row) {
+      final id = row['id']! as String;
+      return Task.fromMap(
+        row,
+        subtasks: subtasksByTask[id] ?? [],
+        attachments: attachmentsByTask[id] ?? [],
+      );
+    }).toList();
   }
 }
 

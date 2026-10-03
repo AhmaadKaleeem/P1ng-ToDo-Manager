@@ -246,6 +246,20 @@ class TaskController extends ChangeNotifier {
     await loadTasks();
   }
 
+  Future<void> togglePinTask(String id) async {
+    final task = await _repo.getById(id);
+    if (task == null) return;
+
+    if (!task.isPinned) {
+      final pinnedCount = _allTasks.where((t) => t.isPinned && !t.isCompleted).length;
+      if (pinnedCount >= 5) {
+        throw TaskValidationException('Maximum of 5 tasks can be pinned.');
+      }
+    }
+
+    await updateTask(task.copyWith(isPinned: !task.isPinned), skipReload: false);
+  }
+
   Future<void> moveToInbox(String id) async {
     final task = await _repo.getById(id);
     if (task == null) return;

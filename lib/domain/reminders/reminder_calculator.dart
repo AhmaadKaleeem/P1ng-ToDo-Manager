@@ -2,12 +2,15 @@ import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/timetable_entry.dart';
-import 'package:uuid/uuid.dart';
 
 abstract final class ReminderCalculator {
-  static const _uuid = Uuid();
-
   /// Computes scheduled reminder times from a task due date and reminder plan.
+  ///
+  /// Rules:
+  /// - All future reminders are included as-is.
+  /// - Past reminders are collapsed: at most ONE is kept (the deadline offset if
+  ///   present, otherwise the most-recently-scheduled past offset). This prevents
+  ///   multiple immediate notifications from firing for a single overdue task.
   static List<ScheduledReminder> buildSchedule(
     Task task, {
     DateTime? now,
@@ -19,33 +22,54 @@ abstract final class ReminderCalculator {
     }
 
     final reference = now ?? DateTime.now();
-    final reminders = <ScheduledReminder>[];
+    final future = <ScheduledReminder>[];
+    final past   = <ScheduledReminder>[];
 
     for (final offset in task.reminderPlan.allOffsets) {
       var scheduledAt = applyOffset(dueAt, offset);
-      
+
       if (task.reminderPlan.flexibleReminder && timetable.isNotEmpty) {
         scheduledAt = _deferIfInClass(scheduledAt, timetable);
       }
-      
-      if (!scheduledAt.isAfter(reference)) continue;
 
-      reminders.add(
-        ScheduledReminder(
-          id: _uuid.v4(),
-          taskId: task.id,
-          scheduledAt: scheduledAt,
-          status: ReminderStatus.pending,
-          kind: offset.atDeadline
-              ? ReminderKind.atDeadline
-              : ReminderKind.relative,
-          label: offset.label,
-        ),
+      final idSuffix = offset.atDeadline
+          ? 'deadline'
+          : 'rel-${offset.days}-${offset.hours}-${offset.minutes}';
+
+      final reminder = ScheduledReminder(
+        id: '${task.id}-$idSuffix',
+        taskId: task.id,
+        scheduledAt: scheduledAt,
+        status: ReminderStatus.pending,
+        kind: offset.atDeadline
+            ? ReminderKind.atDeadline
+            : ReminderKind.relative,
+        label: offset.label,
       );
+
+      // Cutoff: 1 minute ago so a just-fired reminder isn't re-fired.
+      if (scheduledAt.isBefore(reference.subtract(const Duration(minutes: 1)))) {
+        past.add(reminder);
+      } else {
+        future.add(reminder);
+      }
     }
 
-    reminders.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    return reminders;
+    // Collapse all past reminders into a single one to avoid notification spam.
+    // Prefer the deadline offset; otherwise take the most recently scheduled.
+    if (past.isNotEmpty) {
+      final single = past.firstWhere(
+        (r) => r.kind == ReminderKind.atDeadline,
+        orElse: () {
+          past.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+          return past.first;
+        },
+      );
+      future.add(single);
+    }
+
+    future.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    return future;
   }
 
   static DateTime applyOffset(DateTime dueAt, ReminderOffset offset) {

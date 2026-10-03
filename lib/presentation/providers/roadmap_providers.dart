@@ -1,126 +1,109 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:todow/core/providers/service_providers.dart';
 import 'package:todow/domain/models/roadmap.dart';
 import 'package:todow/domain/models/roadmap_import.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/models/enums.dart';
 import 'package:todow/domain/models/reminder.dart';
 import 'package:todow/domain/reminders/reminder_presets.dart';
-import 'package:todow/domain/repositories/roadmap_repository.dart';
 
-class RoadmapController extends ChangeNotifier {
-  RoadmapController({
-    required RoadmapRepository roadmapRepo,
-    required TopicRepository topicRepo,
-    required RoadmapTaskRepository taskRepo,
-    required RoadmapImportRepository importRepo,
-  })  : _roadmapRepo = roadmapRepo,
-        _topicRepo = topicRepo,
-        _taskRepo = taskRepo,
-        _importRepo = importRepo;
-
-  final RoadmapRepository _roadmapRepo;
-  final TopicRepository _topicRepo;
-  final RoadmapTaskRepository _taskRepo;
-  final RoadmapImportRepository _importRepo;
+class RoadmapNotifier extends AsyncNotifier<List<Roadmap>> {
   static const _uuid = Uuid();
 
-  List<Roadmap> _roadmaps = [];
-  bool _loading = false;
-  Object? _error;
-
-  List<Roadmap> get roadmaps => _roadmaps;
-  bool get loading => _loading;
-  Object? get error => _error;
-
-  Future<void> load() async {
-    _loading = true;
-    notifyListeners();
-    try {
-      _roadmaps = await _roadmapRepo.getAll();
-      _error = null;
-    } catch (e) {
-      _error = e;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
+  @override
+  Future<List<Roadmap>> build() async {
+    return ref.watch(roadmapRepositoryProvider).getAll();
   }
 
-  Future<Roadmap> createRoadmap(
-      {required String title, String? description, int colorIndex = 0}) async {
+  Future<Roadmap> createRoadmap({required String title, String? description, int colorIndex = 0}) async {
     final now = DateTime.now();
     final r = Roadmap(
-        id: _uuid.v4(),
-        title: title,
-        description: description,
-        colorIndex: colorIndex,
-        orderIndex: _roadmaps.length,
-        createdAt: now,
-        updatedAt: now);
-    await _roadmapRepo.create(r);
-    _roadmaps = [..._roadmaps, r];
-    notifyListeners();
+      id: _uuid.v4(),
+      title: title,
+      description: description,
+      colorIndex: colorIndex,
+      orderIndex: state.valueOrNull?.length ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await ref.read(roadmapRepositoryProvider).create(r);
+    if (state.hasValue) {
+      state = AsyncData([...state.value!, r]);
+    } else {
+      ref.invalidateSelf();
+    }
     return r;
   }
 
   Future<void> updateRoadmap(Roadmap roadmap) async {
-    await _roadmapRepo.update(roadmap);
-    _roadmaps = [for (final r in _roadmaps) r.id == roadmap.id ? roadmap : r];
-    notifyListeners();
+    await ref.read(roadmapRepositoryProvider).update(roadmap);
+    if (state.hasValue) {
+      state = AsyncData([
+        for (final r in state.value!) r.id == roadmap.id ? roadmap : r
+      ]);
+    }
   }
 
-  Future<void> deleteRoadmap(String id) async {
-    await _roadmapRepo.delete(id);
-    _roadmaps = _roadmaps.where((r) => r.id != id).toList();
-    notifyListeners();
+  Future<void> deleteRoadmap(String id, {bool deleteTasks = false}) async {
+    await ref.read(roadmapRepositoryProvider).delete(id, deleteTasks: deleteTasks);
+    if (state.hasValue) {
+      state = AsyncData(state.value!.where((r) => r.id != id).toList());
+    }
   }
 
   Future<void> reorderRoadmaps(int oldIndex, int newIndex) async {
     if (newIndex > oldIndex) newIndex--;
-    final reordered = [..._roadmaps];
+    if (!state.hasValue) return;
+    
+    final reordered = [...state.value!];
     final roadmap = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, roadmap);
-    await _roadmapRepo.reorder(reordered);
-    _roadmaps = [
+    await ref.read(roadmapRepositoryProvider).reorder(reordered);
+    
+    state = AsyncData([
       for (var i = 0; i < reordered.length; i++)
         reordered[i].copyWith(orderIndex: i)
-    ];
-    notifyListeners();
+    ]);
   }
 
   Future<List<Topic>> getTopics(String roadmapId) =>
-      _topicRepo.getByRoadmapId(roadmapId);
-  Future<Topic?> getTopic(String id) => _topicRepo.getById(id);
-  Future<Roadmap?> getRoadmap(String id) => _roadmapRepo.getById(id);
+      ref.read(topicRepositoryProvider).getByRoadmapId(roadmapId);
+      
+  Future<Topic?> getTopic(String id) => ref.read(topicRepositoryProvider).getById(id);
+  
+  Future<Roadmap?> getRoadmap(String id) => ref.read(roadmapRepositoryProvider).getById(id);
 
-  Future<Topic> createTopic(
-      {required String roadmapId,
-      required String title,
-      String? description,
-      required int orderIndex}) async {
+  Future<Topic> createTopic({
+    required String roadmapId,
+    required String title,
+    String? description,
+    required int orderIndex,
+  }) async {
     final now = DateTime.now();
     final t = Topic(
-        id: _uuid.v4(),
-        roadmapId: roadmapId,
-        title: title,
-        description: description,
-        orderIndex: orderIndex,
-        status: TopicStatus.pending,
-        createdAt: now,
-        updatedAt: now);
-    await _topicRepo.create(t);
+      id: _uuid.v4(),
+      roadmapId: roadmapId,
+      title: title,
+      description: description,
+      orderIndex: orderIndex,
+      status: TopicStatus.pending,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await ref.read(topicRepositoryProvider).create(t);
     return t;
   }
 
-  Future<void> updateTopic(Topic topic) => _topicRepo.update(topic);
-  Future<void> deleteTopic(String id) => _topicRepo.delete(id);
+  Future<void> updateTopic(Topic topic) => ref.read(topicRepositoryProvider).update(topic);
+  
+  Future<void> deleteTopic(String id) => ref.read(topicRepositoryProvider).delete(id);
 
   Future<List<Task>> getTasksByTopic(String topicId) =>
-      _taskRepo.getByTopicId(topicId);
-  Future<List<Task>> getTasksByRoadmap(String roadmapId,
-          {DateTime? from, DateTime? to}) =>
-      _taskRepo.getByRoadmapId(roadmapId, from: from, to: to);
+      ref.read(roadmapTaskRepositoryProvider).getByTopicId(topicId);
+      
+  Future<List<Task>> getTasksByRoadmap(String roadmapId, {DateTime? from, DateTime? to}) =>
+      ref.read(roadmapTaskRepositoryProvider).getByRoadmapId(roadmapId, from: from, to: to);
 
   Future<Roadmap> importDraft(RoadmapImportDraft draft) async {
     final now = DateTime.now();
@@ -129,10 +112,11 @@ class RoadmapController extends ChangeNotifier {
       title: draft.title,
       description: draft.rows.first.roadmapDescription,
       colorIndex: 0,
-      orderIndex: _roadmaps.length,
+      orderIndex: state.valueOrNull?.length ?? 0,
       createdAt: now,
       updatedAt: now,
     );
+    
     final topicByKey = <String, Topic>{};
     for (final row in draft.rows) {
       final key = '${row.topicOrder}:${row.topicTitle}';
@@ -150,6 +134,7 @@ class RoadmapController extends ChangeNotifier {
         ),
       );
     }
+    
     final tasks = [
       for (final row in draft.rows)
         Task(
@@ -172,10 +157,18 @@ class RoadmapController extends ChangeNotifier {
           sourceType: TaskSourceType.local,
         ),
     ];
-    await _importRepo.importAll(
-        roadmap: roadmap, topics: topicByKey.values.toList(), tasks: tasks);
-    _roadmaps = [..._roadmaps, roadmap];
-    notifyListeners();
+    
+    await ref.read(roadmapImportRepositoryProvider).importAll(
+      roadmap: roadmap, 
+      topics: topicByKey.values.toList(), 
+      tasks: tasks
+    );
+    
+    if (state.hasValue) {
+      state = AsyncData([...state.value!, roadmap]);
+    } else {
+      ref.invalidateSelf();
+    }
     return roadmap;
   }
 
@@ -192,3 +185,7 @@ class RoadmapController extends ChangeNotifier {
         _ => ReminderPreset.normal,
       };
 }
+
+final roadmapsProvider = AsyncNotifierProvider<RoadmapNotifier, List<Roadmap>>(
+  RoadmapNotifier.new,
+);

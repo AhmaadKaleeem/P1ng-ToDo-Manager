@@ -78,7 +78,7 @@ class TaskRepositoryImpl implements TaskRepository {
       args.addAll([q, q, q]);
     }
 
-    final order = switch (sort) {
+    final baseOrder = switch (sort) {
       TaskSort.manual => 'sort_order ASC, created_at DESC',
       TaskSort.dueDateAsc => 'due_at IS NULL, due_at ASC',
       TaskSort.dueDateDesc => 'due_at IS NULL, due_at DESC',
@@ -87,6 +87,7 @@ class TaskRepositoryImpl implements TaskRepository {
       TaskSort.createdDesc => 'created_at DESC',
       TaskSort.titleAsc => 'title COLLATE NOCASE ASC',
     };
+    final order = 'is_pinned DESC, $baseOrder';
 
     final rows = await _database.db.query(
       'tasks',
@@ -95,9 +96,53 @@ class TaskRepositoryImpl implements TaskRepository {
       orderBy: order,
     );
 
+    if (rows.isEmpty) return const [];
+
+    // Batch fetch subtasks and attachments to avoid N+1 queries
+    final taskIds = rows.map((r) => r['id']! as String).toList();
+    
+    // SQLite has limits on IN clause variables, so we chunk if necessary.
+    // For safety, let's process in chunks of 500.
+    final subtasksByTask = <String, List<Subtask>>{};
+    final attachmentsByTask = <String, List<Attachment>>{};
+    
+    for (var i = 0; i < taskIds.length; i += 500) {
+      final chunk = taskIds.skip(i).take(500).toList();
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      
+      final subRows = await _database.db.query(
+        'subtasks',
+        where: 'task_id IN ($placeholders)',
+        whereArgs: chunk,
+        orderBy: 'task_id ASC, sort_order ASC',
+      );
+      
+      for (final r in subRows) {
+        final sub = Subtask.fromMap(r);
+        subtasksByTask.putIfAbsent(sub.taskId, () => []).add(sub);
+      }
+      
+      final attRows = await _database.db.query(
+        'attachments',
+        where: 'task_id IN ($placeholders)',
+        whereArgs: chunk,
+        orderBy: 'task_id ASC, created_at ASC',
+      );
+      
+      for (final r in attRows) {
+        final att = Attachment.fromMap(r);
+        attachmentsByTask.putIfAbsent(att.taskId, () => []).add(att);
+      }
+    }
+
     final tasks = <Task>[];
     for (final row in rows) {
-      final task = await _hydrate(row);
+      final id = row['id']! as String;
+      final task = Task.fromMap(
+        row,
+        subtasks: subtasksByTask[id] ?? [],
+        attachments: attachmentsByTask[id] ?? [],
+      );
       if (tags != null && tags.isNotEmpty) {
         if (!task.tags.any(tags.contains)) continue;
       }

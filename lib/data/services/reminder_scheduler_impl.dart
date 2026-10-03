@@ -20,21 +20,66 @@ class ReminderSchedulerImpl implements ReminderScheduler {
 
   @override
   Future<void> syncTaskReminders(Task task) async {
-    await cancelTaskReminders(task.id);
+    // Always fetch the existing reminders so we can diff against them.
+    final existing = await _tasks.getRemindersForTask(task.id);
 
     if (task.isCompleted || task.isArchived || task.dueAt == null) {
+      await cancelTaskReminders(task.id);
       return;
     }
 
-    final timetable = task.reminderPlan.flexibleReminder 
-        ? await _timetable.getAll() 
+    final timetable = task.reminderPlan.flexibleReminder
+        ? await _timetable.getAll()
         : const <TimetableEntry>[];
 
     final schedule = ReminderCalculator.buildSchedule(task, timetable: timetable);
     final persisted = <ScheduledReminder>[];
 
-    for (final reminder in schedule) {
+    // Build a lookup from stable reminder-string-id → existing DB row.
+    final existingMap = {for (final r in existing) r.id: r};
+
+    // Seed with ALL existing OS notification IDs (as stored integers).
+    // We'll remove the ones we want to keep; everything left gets cancelled.
+    final idsToCancel = existing
+        .map((r) => r.notificationId)
+        .whereType<int>()
+        .toSet();
+
+    for (var reminder in schedule) {
       final notifId = _notificationIdFor(reminder.id);
+      final old = existingMap[reminder.id];
+
+      // Preserve a HANDLED reminder only when the scheduled time hasn't
+      // changed.  If the user edits the due date the time will differ, so
+      // we fall through and reschedule with the new time.
+      if (old != null &&
+          old.status == ReminderStatus.handled &&
+          old.scheduledAt.isAtSameMomentAs(reminder.scheduledAt)) {
+        persisted.add(old);
+        // This notif was already cancelled when it fired — don't cancel again.
+        idsToCancel.remove(old.notificationId);
+        idsToCancel.remove(notifId);
+        continue;
+      }
+
+      // Preserve a SNOOZED reminder's wake-up time if the due date is the
+      // same.  If the due date changed, treat it as a fresh reminder.
+      if (old != null &&
+          old.status == ReminderStatus.snoozed &&
+          old.snoozedUntil != null &&
+          old.scheduledAt.isAtSameMomentAs(reminder.scheduledAt)) {
+        reminder = reminder.copyWith(
+          status: ReminderStatus.snoozed,
+          snoozedUntil: old.snoozedUntil,
+          scheduledAt: old.snoozedUntil,
+        );
+      }
+
+      // Remove from cancel-set BEFORE scheduling so a replace on the same
+      // notifId doesn't cancel the freshly scheduled alarm.
+      idsToCancel.remove(notifId);
+      if (old?.notificationId != null) idsToCancel.remove(old!.notificationId);
+
       await _notifications.scheduleTaskReminder(
         task: task,
         scheduledAt: reminder.scheduledAt,
@@ -47,31 +92,50 @@ class ReminderSchedulerImpl implements ReminderScheduler {
     }
 
     if (task.hasConstantReminder) {
-      final constantId = _notificationIdFor('constant-${task.id}');
+      final constantId = 'constant-${task.id}';
+      final notifId = _notificationIdFor(constantId);
+      idsToCancel.remove(notifId);
+
+      final oldConstant = existingMap[constantId];
+      if (oldConstant?.notificationId != null) {
+        idsToCancel.remove(oldConstant!.notificationId);
+      }
+
       final firstAt = schedule.isNotEmpty
           ? schedule.first.scheduledAt
           : DateTime.now().add(const Duration(minutes: 1));
+
+      final scheduledAt =
+          (oldConstant != null && oldConstant.scheduledAt.isAfter(DateTime.now()))
+              ? oldConstant.scheduledAt
+              : (firstAt.isAfter(DateTime.now())
+                  ? firstAt
+                  : DateTime.now().subtract(const Duration(seconds: 1)));
+
       await _notifications.scheduleTaskReminder(
         task: task,
-        scheduledAt: firstAt.isAfter(DateTime.now())
-            ? firstAt
-            : DateTime.now().add(const Duration(minutes: 1)),
-        notificationId: constantId,
+        scheduledAt: scheduledAt,
+        notificationId: notifId,
         isConstant: true,
         label: 'Constant reminder active',
         ringAsAlarm: task.reminderPlan.ringAsAlarm,
       );
       persisted.add(
         ScheduledReminder(
-          id: 'constant-${task.id}',
+          id: constantId,
           taskId: task.id,
-          scheduledAt: firstAt,
-          status: ReminderStatus.pending,
+          scheduledAt: scheduledAt,
+          status: oldConstant?.status ?? ReminderStatus.pending,
           kind: ReminderKind.constant,
-          notificationId: constantId,
+          notificationId: notifId,
           label: 'Constant reminder',
         ),
       );
+    }
+
+    // Cancel any OS alarms that are no longer in the new schedule.
+    for (final id in idsToCancel) {
+      await _notifications.cancelNotification(id);
     }
 
     await _tasks.saveReminders(task.id, persisted);
@@ -149,34 +213,23 @@ class ReminderSchedulerImpl implements ReminderScheduler {
   @override
   Future<void> recoverPendingReminders() async {
     final activeReminders = await _tasks.getActiveReminders();
+    if (activeReminders.isEmpty) return;
+
     final now = DateTime.now();
+    final missedTaskIds = <String>{};
 
-    for (final reminder in activeReminders) {
-      if (reminder.notificationId == null) continue;
-      final task = await _tasks.getById(reminder.taskId);
-      if (task == null || task.isCompleted || task.isArchived) continue;
-
-      if (reminder.scheduledAt.isBefore(now)) {
-        // Missed reminder, fire immediately
-        await _notifications.scheduleTaskReminder(
-          task: task,
-          scheduledAt: now.add(const Duration(seconds: 5)),
-          notificationId: reminder.notificationId!,
-          isConstant: reminder.kind == ReminderKind.constant,
-          label: reminder.label,
-          ringAsAlarm: task.reminderPlan.ringAsAlarm,
-        );
-      } else {
-        // Future reminder, reschedule safely
-        await _notifications.scheduleTaskReminder(
-          task: task,
-          scheduledAt: reminder.scheduledAt,
-          notificationId: reminder.notificationId!,
-          isConstant: reminder.kind == ReminderKind.constant,
-          label: reminder.label,
-          ringAsAlarm: task.reminderPlan.ringAsAlarm,
-        );
+    for (final r in activeReminders) {
+      if (r.scheduledAt.isBefore(now)) {
+        missedTaskIds.add(r.taskId);
       }
+    }
+
+    if (missedTaskIds.isEmpty) return;
+
+    for (final taskId in missedTaskIds) {
+      final task = await _tasks.getById(taskId);
+      if (task == null || task.isCompleted || task.isArchived) continue;
+      await syncTaskReminders(task);
     }
   }
 }

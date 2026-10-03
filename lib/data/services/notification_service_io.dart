@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:todow/domain/models/task.dart';
 import 'package:todow/domain/services/notification_service.dart';
@@ -25,9 +26,18 @@ class NotificationServiceImpl implements NotificationService {
     tz_data.initializeTimeZones();
     try {
       final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      debugPrint('Device timezone reported: $timeZoneName');
       tz.setLocalLocation(tz.getLocation(timeZoneName));
+      debugPrint('Timezone set to: ${tz.local.name}');
     } catch (e) {
-      debugPrint('Could not initialize timezone: $e');
+      debugPrint('Could not initialize timezone: $e — falling back to Asia/Karachi (+05:00)');
+      // Use Asia/Karachi as the hardcoded fallback for UTC+5 devices
+      // so scheduled alarms fire at the correct local time instead of 5h early.
+      try {
+        tz.setLocalLocation(tz.getLocation('Asia/Karachi'));
+      } catch (_) {
+        tz.setLocalLocation(tz.UTC);
+      }
     }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
@@ -96,8 +106,18 @@ class NotificationServiceImpl implements NotificationService {
     bool ringAsAlarm = false,
   }) async {
     final channel = isConstant ? channelConstant : channelNormal;
-    final title = isConstant ? 'Constant reminder' : 'Reminder';
-    final body = label == null ? task.title : '${task.title} — $label';
+
+    // Single source of truth for what the notification says.
+    // Collapsed (ticker) and expanded views both use title + body.
+    final title = isConstant ? 'Constant Reminder' : 'Reminder';
+    final body  = label == null ? task.title : '${task.title} — $label';
+
+    // BigText expansion: show the task description when available,
+    // otherwise fall back to body so it is always informative.
+    final expandedText = task.description.isNotEmpty
+        ? '${task.title}\n\n${task.description}'
+        : body;
+
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
         channel,
@@ -109,25 +129,47 @@ class NotificationServiceImpl implements NotificationService {
         autoCancel: !isConstant,
         fullScreenIntent: ringAsAlarm,
         additionalFlags: ringAsAlarm ? Int32List.fromList(<int>[4]) : null,
+        // Brand accent colour (orange) applied to the notification icon
+        color: const Color(0xFFF97316),
+        styleInformation: BigTextStyleInformation(
+          expandedText,
+          contentTitle: body,
+          summaryText: label,
+          htmlFormatContent: false,
+          htmlFormatContentTitle: false,
+        ),
+        subText: isConstant ? 'Constant reminder' : 'Reminder',
         actions: const [
-          AndroidNotificationAction('complete', 'Complete'),
-          AndroidNotificationAction('snooze', 'Snooze 15m'),
-          AndroidNotificationAction('open', 'Open'),
+          AndroidNotificationAction('complete', 'Complete',
+              showsUserInterface: true),
+          AndroidNotificationAction('snooze', 'Snooze 15m',
+              showsUserInterface: true),
+          AndroidNotificationAction('open', 'Open',
+              showsUserInterface: true),
         ],
       ),
       iOS: const DarwinNotificationDetails(
           presentAlert: true, presentSound: true),
     );
+
+    debugPrint(
+      'Scheduling notification #$notificationId "$title" for '
+      '${scheduledAt.toIso8601String()} '
+      '(now: ${DateTime.now().toIso8601String()}, tz: ${tz.local.name})',
+    );
+
     if (scheduledAt.isBefore(DateTime.now())) {
+      // Past/overdue — fire immediately
       await _plugin.show(notificationId, title, body, details,
           payload: task.id);
     } else {
+      final tzScheduled = tz.TZDateTime.from(scheduledAt, tz.local);
       try {
         await _plugin.zonedSchedule(
           notificationId,
           title,
-          isConstant ? '$body\nActive until completed' : body,
-          tz.TZDateTime.from(scheduledAt, tz.local),
+          body,
+          tzScheduled,
           details,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: task.id,
@@ -135,12 +177,12 @@ class NotificationServiceImpl implements NotificationService {
               UILocalNotificationDateInterpretation.absoluteTime,
         );
       } catch (e) {
-        debugPrint('Failed to schedule exact reminder: $e');
+        debugPrint('Exact alarm unavailable, falling back to inexact: $e');
         await _plugin.zonedSchedule(
           notificationId,
           title,
-          isConstant ? '$body\nActive until completed' : body,
-          tz.TZDateTime.from(scheduledAt, tz.local),
+          body,
+          tzScheduled,
           details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           payload: task.id,

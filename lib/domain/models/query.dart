@@ -85,6 +85,9 @@ List<Task> filterTasks(List<Task> tasks, TaskFilter filter) {
 List<Task> sortTasks(List<Task> tasks, TaskSort sort) {
   final list = List<Task>.from(tasks);
   list.sort((a, b) {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+
     switch (sort) {
       case TaskSort.manual:
         return a.sortOrder.compareTo(b.sortOrder);

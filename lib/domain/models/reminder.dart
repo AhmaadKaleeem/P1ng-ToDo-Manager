@@ -137,6 +137,7 @@ class ScheduledReminder {
     DateTime? scheduledAt,
     ReminderStatus? status,
     DateTime? snoozedUntil,
+    bool clearSnoozedUntil = false,
     int? notificationId,
     String? label,
   }) {
@@ -146,7 +147,7 @@ class ScheduledReminder {
       scheduledAt: scheduledAt ?? this.scheduledAt,
       status: status ?? this.status,
       kind: kind,
-      snoozedUntil: snoozedUntil ?? this.snoozedUntil,
+      snoozedUntil: clearSnoozedUntil ? null : (snoozedUntil ?? this.snoozedUntil),
       notificationId: notificationId ?? this.notificationId,
       label: label ?? this.label,
     );
